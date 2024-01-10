@@ -106,7 +106,7 @@ func generateTagSchema(t reflect.Type) (*TagSchema, bool) {
 		tagSchema := NewTagSchema(tagName)
 		tagSchema.Comment = tagComment
 
-		properties, indexes := generatePropertiesAndIndexes(t)
+		properties, indexes := generateTagPropertiesAndIndexes(t)
 
 		for _, prop := range properties {
 			tagSchema.AddProperty(prop)
@@ -122,7 +122,7 @@ func generateTagSchema(t reflect.Type) (*TagSchema, bool) {
 	return nil, false
 }
 
-func generatePropertiesAndIndexes(t reflect.Type) ([]*TagPropertySchema, map[string][]*TagPropertySchema) {
+func generateTagPropertiesAndIndexes(t reflect.Type) ([]*TagPropertySchema, map[string][]*TagPropertySchema) {
 	properties := make([]*TagPropertySchema, 0)
 	indexes := make(map[string][]*TagPropertySchema)
 

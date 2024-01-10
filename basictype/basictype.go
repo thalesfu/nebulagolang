@@ -94,6 +94,8 @@ func GetTypeByReflectTypeKind(kd reflect.Kind) BasicType {
 		return Float
 	case reflect.Float64:
 		return Double
+	case reflect.Bool:
+		return Bool
 	}
 
 	return String

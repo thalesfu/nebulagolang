@@ -2,6 +2,9 @@ package nebulagolang
 
 import (
 	"fmt"
+	"github.com/thalesfu/nebulagolang/basictype"
+	"github.com/thalesfu/nebulagolang/utils"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -69,4 +72,92 @@ func (es *EdgeSchema) CreateString() string {
 	}
 
 	return builder.String() + strings.Join(additionalCommand, ", ") + ";"
+}
+
+func BuildEdgeSchema[T interface{}]() (*EdgeSchema, bool) {
+	typeOfEdge := utils.GetType[T]()
+	edgeSchema, ok := generateEdgeSchema(typeOfEdge)
+
+	if !ok {
+		return nil, false
+	}
+
+	return edgeSchema, true
+}
+
+func generateEdgeSchema(t reflect.Type) (*EdgeSchema, bool) {
+	edgeName := ""
+	edgeComment := ""
+
+	for i := 0; i < t.NumField(); i++ {
+		ft := t.Field(i)
+		name := ft.Tag.Get("nebulaedgename")
+		if name != "" {
+			edgeName = name
+		}
+
+		comment := ft.Tag.Get("nebulaedgecomment")
+		if comment != "" {
+			edgeComment = comment
+		}
+	}
+
+	if edgeName != "" {
+		edgeSchema := NewEdgeSchema(edgeName)
+		edgeSchema.Comment = edgeComment
+
+		properties, indexes := generateEdgePropertiesAndIndexes(t)
+
+		for _, prop := range properties {
+			edgeSchema.AddProperty(prop)
+		}
+
+		for _, index := range indexes {
+			edgeSchema.AddIndex(index...)
+		}
+
+		return edgeSchema, true
+	}
+
+	return nil, false
+}
+
+func generateEdgePropertiesAndIndexes(t reflect.Type) ([]*EdgePropertySchema, map[string][]*EdgePropertySchema) {
+	properties := make([]*EdgePropertySchema, 0)
+	indexes := make(map[string][]*EdgePropertySchema)
+
+	for i := 0; i < t.NumField(); i++ {
+		ft := t.Field(i)
+		propertyName := ft.Tag.Get("nebulaproperty")
+
+		if propertyName == "" {
+			continue
+		}
+
+		propertyType := basictype.GetTypeByReflectFieldStruct(ft)
+
+		schema := NewEdgePropertySchema(propertyName, propertyType)
+
+		comment := ft.Tag.Get("description")
+		if comment != "" {
+			schema.Comment = comment
+		}
+
+		properties = append(properties, schema)
+
+		idxstring := ft.Tag.Get("nebulaindexes")
+
+		idxes := strings.Split(idxstring, ",")
+
+		for _, idx := range idxes {
+			if _, ok := indexes[idx]; !ok {
+				indexes[idx] = make([]*EdgePropertySchema, 0)
+				indexes[idx] = append(indexes[idx], schema)
+			} else {
+				indexes[idx] = append(indexes[idx], schema)
+			}
+		}
+	}
+
+	return properties, indexes
 }
