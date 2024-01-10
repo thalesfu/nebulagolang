@@ -2,6 +2,9 @@ package nebulagolang
 
 import (
 	"fmt"
+	"github.com/thalesfu/nebulagolang/basictype"
+	"github.com/thalesfu/nebulagolang/utils"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -69,4 +72,92 @@ func (s *TagSchema) CreateString() string {
 	}
 
 	return builder.String() + strings.Join(additionalCommand, ", ") + ";"
+}
+
+func BuildTagSchema[T interface{}]() (*TagSchema, bool) {
+	typeOfTag := utils.GetType[T]()
+	tagSchema, ok := generateTagSchema(typeOfTag)
+
+	if !ok {
+		return nil, false
+	}
+
+	return tagSchema, true
+}
+
+func generateTagSchema(t reflect.Type) (*TagSchema, bool) {
+	tagName := ""
+	tagComment := ""
+
+	for i := 0; i < t.NumField(); i++ {
+		ft := t.Field(i)
+		name := ft.Tag.Get("nebulatagname")
+		if name != "" {
+			tagName = name
+		}
+
+		comment := ft.Tag.Get("nebulatagcomment")
+		if comment != "" {
+			tagComment = comment
+		}
+	}
+
+	if tagName != "" {
+		tagSchema := NewTagSchema(tagName)
+		tagSchema.Comment = tagComment
+
+		properties, indexes := generatePropertiesAndIndexes(t)
+
+		for _, prop := range properties {
+			tagSchema.AddProperty(prop)
+		}
+
+		for _, index := range indexes {
+			tagSchema.AddIndex(index...)
+		}
+
+		return tagSchema, true
+	}
+
+	return nil, false
+}
+
+func generatePropertiesAndIndexes(t reflect.Type) ([]*TagPropertySchema, map[string][]*TagPropertySchema) {
+	properties := make([]*TagPropertySchema, 0)
+	indexes := make(map[string][]*TagPropertySchema)
+
+	for i := 0; i < t.NumField(); i++ {
+		ft := t.Field(i)
+		propertyName := ft.Tag.Get("nebulaproperty")
+
+		if propertyName == "" {
+			continue
+		}
+
+		propertyType := basictype.GetTypeByReflectFieldStruct(ft)
+
+		schema := NewTagPropertySchema(propertyName, propertyType)
+
+		comment := ft.Tag.Get("description")
+		if comment != "" {
+			schema.Comment = comment
+		}
+
+		properties = append(properties, schema)
+
+		idxstring := ft.Tag.Get("nebulaindexes")
+
+		idxes := strings.Split(idxstring, ",")
+
+		for _, idx := range idxes {
+			if _, ok := indexes[idx]; !ok {
+				indexes[idx] = make([]*TagPropertySchema, 0)
+				indexes[idx] = append(indexes[idx], schema)
+			} else {
+				indexes[idx] = append(indexes[idx], schema)
+			}
+		}
+	}
+
+	return properties, indexes
 }

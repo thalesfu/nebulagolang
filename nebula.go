@@ -79,7 +79,7 @@ func (db *NebulaDB) Use(space string) *Space {
 }
 
 func (db *NebulaDB) CreateSpace(space string, vidType basictype.BasicType, partitionNum int, replicaFactor int) (*nebulago.ResultSet, bool, error) {
-	stmt := fmt.Sprintf("CREATE SPACE IF NOT EXISTS %s(partition_num=%d, replica_factor=%d, vid_type=%s);", space, partitionNum, replicaFactor, vidType)
+	stmt := fmt.Sprintf("CREATE SPACE IF NOT EXISTS %s(partition_num=%d, replica_factor=%d, vid_type=%s);", space, partitionNum, replicaFactor, vidType.String())
 
 	return db.Execute(stmt)
 }
