@@ -4,7 +4,7 @@ import "reflect"
 
 func GetType[T any]() reflect.Type {
 	var zeroT T
-	valueOfT := reflect.ValueOf(zeroT)
+	valueOfT := reflect.ValueOf(&zeroT)
 	valueOfT = IndirectValue(valueOfT)
 	typeOfTag := valueOfT.Type()
 	return typeOfTag

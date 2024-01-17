@@ -6,6 +6,7 @@ import (
 	"github.com/thalesfu/nebulagolang/basictype"
 	nebulago "github.com/vesoft-inc/nebula-go/v3"
 	"log"
+	"strings"
 )
 
 type NebulaDB struct {
@@ -26,7 +27,7 @@ func LoadDB() (*NebulaDB, bool) {
 	}, true
 }
 
-func (db *NebulaDB) Execute(stmt string) (*nebulago.ResultSet, bool, error) {
+func (db *NebulaDB) Execute(stmts ...string) (*nebulago.ResultSet, bool, error) {
 	var logger = nebulago.DefaultLogger{}
 	hostAddress := nebulago.HostAddress{Host: db.account.Host, Port: db.account.Port}
 	hostList := []nebulago.HostAddress{hostAddress}
@@ -49,6 +50,12 @@ func (db *NebulaDB) Execute(stmt string) (*nebulago.ResultSet, bool, error) {
 	}
 	// Release session and return connection back to connection pool
 	defer session.Release()
+
+	for i, s := range stmts {
+		stmts[i] = s + ";"
+	}
+
+	stmt := strings.Join(stmts, "")
 
 	resultSet, err := session.Execute(stmt)
 

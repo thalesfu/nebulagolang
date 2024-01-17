@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
-	nebulago "github.com/vesoft-inc/nebula-go/v3"
+	"github.com/thalesfu/nebulagolang/utils"
 	"strings"
 )
 
@@ -13,210 +13,208 @@ type Space struct {
 	Nebula *NebulaDB `yaml:"nebula"`
 }
 
-func (ns *Space) Execute(stmt string) (*nebulago.ResultSet, bool, error) {
-	return ns.Nebula.Execute(stmt)
+func (s *Space) Execute(stmts ...string) *Result {
+	finalStmts := []string{s.UseCommand()}
+	finalStmts = append(finalStmts, stmts...)
+
+	resultSet, ok, err := s.Nebula.Execute(finalStmts...)
+
+	return newResult(resultSet, ok, err, finalStmts...)
 }
 
-func (ns *Space) Drop() (*nebulago.ResultSet, bool, error) {
-	red := "\033[31m"
-	reset := "\033[0m"
-
-	fmt.Println(red + "大警告! 你将删除" + ns.Name + "这个空间. WARNING! You are going to drop the space " + ns.Name + "!" + reset)
-	fmt.Println(red + "如果你真的要删除，请输入\"我真的要删除" + ns.Name + "这个空间\"" + reset)
+func (s *Space) Drop() *Result {
+	fmt.Println(utils.PrintColorRed + "大警告! 你将删除" + s.Name + "这个空间. WARNING! You are going to drop the space " + s.Name + "!" + utils.PrintColorReset)
+	fmt.Println(utils.PrintColorRed + "如果你真的要删除，请输入\"我真的要删除" + s.Name + "这个空间\"" + utils.PrintColorReset)
 	var input string
 	fmt.Scanln(&input)
-	if input == "我真的要删除"+ns.Name+"这个空间" {
+	if input == "我真的要删除"+s.Name+"这个空间" {
 		fmt.Println("就是不给你删，气死你！")
-		return nil, false, errors.New("就是不给你删，气死你！")
+		return newErrorResult(errors.New("就是不给你删，气死你！"))
 	} else if input == "气死了" {
 		fmt.Println("好吧，那就删了吧！")
 	} else {
 		fmt.Println("不给你删！")
-		return nil, false, errors.New("不给你删！")
+		return newErrorResult(errors.New("不给你删！"))
 	}
 
-	stmt := "DROP SPACE IF EXISTS " + ns.Name + ";"
-	return ns.Execute(stmt)
+	stmt := "DROP SPACE IF EXISTS " + s.Name
+	return s.Execute(stmt)
 }
 
-func (ns *Space) Describe() (*nebulago.ResultSet, bool, error) {
-	stmt := "Describe space " + ns.Name + ";"
-	return ns.Execute(stmt)
+func (s *Space) Describe() *Result {
+	stmt := "Describe space " + s.Name
+	return s.Execute(stmt)
 }
 
-func (ns *Space) ShowTags() (*nebulago.ResultSet, bool, error) {
+func (s *Space) UseCommand() string {
+	return "USE " + s.Name
+}
+
+func (s *Space) ShowTags() *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"SHOW TAGS;",
+		"SHOW TAGS",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) CreateTag(tag *TagSchema) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		tag.CreateString(),
-	}
-
-	return ns.Execute(strings.Join(command, ""))
+func (s *Space) CreateTag(tag *TagSchema) *Result {
+	return s.Execute(tag.CreateString())
 }
 
-func (ns *Space) CreateTagWithIndexes(tag *TagSchema) (bool, error) {
-	_, ok, err := ns.CreateTag(tag)
+func (s *Space) CreateTagWithIndexes(tag *TagSchema) *Result {
+	cmds := make([]string, 0)
 
-	if !ok {
-		return false, err
+	r := s.CreateTag(tag)
+	cmds = append(cmds, r.Commands...)
+
+	if !r.Ok {
+		return r
 	}
 
 	for _, idx := range tag.Indexes {
-		_, ok, err = ns.CreateTagIndex(idx)
+		r = s.CreateTagIndex(idx)
+		cmds = append(cmds, r.Commands...)
 
-		if !ok {
-			return false, err
+		if !r.Ok {
+			return r
 		}
 	}
 
-	return true, nil
+	return newSuccessResult(cmds...)
 }
 
-func (ns *Space) DropTag(tag string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DropTag(tag string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"DROP TAG IF EXISTS " + tag + ";",
+		"DROP TAG IF EXISTS " + tag,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropTagWithIndexes(tag string) (bool, error) {
+func (s *Space) DropTagWithIndexes(tag string) *Result {
+	cmds := make([]string, 0)
 
-	_, ok, err := ns.DropTagIndexByTagName(tag)
+	r := s.DropTagIndexByTagName(tag)
+	cmds = append(cmds, r.Commands...)
 
-	if !ok {
-		return ok, err
+	if !r.Ok {
+		return r
 	}
 
-	_, ok, err = ns.DropTag(tag)
+	r = s.DropTag(tag)
+	cmds = append(cmds, r.Commands...)
 
-	if !ok {
-		return ok, err
+	if !r.Ok {
+		return r
 	}
 
-	return true, nil
+	return newSuccessResult(cmds...)
 }
 
-func (ns *Space) RebuildTagWithIndexes(tag *TagSchema) (bool, error) {
-	ok, err := ns.DropTagWithIndexes(tag.Name)
+func (s *Space) RebuildTagWithIndexes(tag *TagSchema) *Result {
+	r := s.DropTagWithIndexes(tag.Name)
 
-	if !ok {
-		return ok, err
+	if !r.Ok {
+		return r
 	}
 
-	return ns.CreateTagWithIndexes(tag)
+	return s.CreateTagWithIndexes(tag)
 }
 
-func (ns *Space) AddTagProperty(tag string, property *TagPropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) AddTagProperty(tag string, property *TagPropertySchema) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER TAG " + tag + " ADD (" + property.String() + ");",
+		"ALTER TAG " + tag + " ADD (" + property.String() + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) AddTagProperties(tag string, properties []*TagPropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) AddTagProperties(tag string, properties []*TagPropertySchema) *Result {
 	propertiesString := make([]string, len(properties))
 	for i, prop := range properties {
 		propertiesString[i] = prop.String()
 	}
 
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER TAG " + tag + " ADD (" + strings.Join(propertiesString, ", ") + ");",
+		"ALTER TAG " + tag + " ADD (" + strings.Join(propertiesString, ", ") + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ChangeTagProperty(tag string, property *TagPropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) ChangeTagProperty(tag string, property *TagPropertySchema) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER TAG " + tag + " CHANGE (" + property.String() + ");",
+		"ALTER TAG " + tag + " CHANGE (" + property.String() + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ChangeTagProperties(tag string, properties []*TagPropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) ChangeTagProperties(tag string, properties []*TagPropertySchema) *Result {
 	propertiesString := make([]string, len(properties))
 	for i, prop := range properties {
 		propertiesString[i] = prop.String()
 	}
 
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER TAG " + tag + " CHANGE (" + strings.Join(propertiesString, ", ") + ");",
+		"ALTER TAG " + tag + " CHANGE (" + strings.Join(propertiesString, ", ") + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropTagProperty(tag string, property string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DropTagProperty(tag string, property string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER TAG " + tag + " DROP (" + property + ");",
+		"ALTER TAG " + tag + " DROP (" + property + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropTagProperties(tag string, properties []string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DropTagProperties(tag string, properties []string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER TAG " + tag + " DROP (" + strings.Join(properties, ", ") + ");",
+		"ALTER TAG " + tag + " DROP (" + strings.Join(properties, ", ") + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DescribeTag(tag string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DescribeTag(tag string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"DESCRIBE TAG " + tag + ";",
+		"DESCRIBE TAG " + tag,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ShowTagIndexes() (*nebulago.ResultSet, bool, error) {
+func (s *Space) ShowTagIndexes() *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"SHOW TAG INDEXES;",
+		"SHOW TAG INDEXES",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ShowTagIndexesByTagName(tagName string) ([]string, bool, error) {
-	resultSet, ok, err := ns.ShowTagIndexes()
+func (s *Space) ShowTagIndexesByTagName(tagName string) *ResultT[[]string] {
+	r := s.ShowTagIndexes()
 
-	if !ok {
-		return nil, false, err
+	if !r.Ok {
+		return newResultT[[]string](r)
 	}
 
 	result := make([]string, 0)
 
-	idxNames, err := resultSet.GetValuesByColName("Index Name")
+	idxNames, err := r.DataSet.GetValuesByColName("Index Name")
 
 	if err != nil {
-		return nil, false, err
+		return newErrorResultT[[]string](err)
 	}
 
 	for _, idxName := range idxNames {
 		idxn, err := idxName.AsString()
 		if err != nil {
-			return nil, false, err
+			return newErrorResultT[[]string](err)
 		}
 
 		if strings.HasPrefix(idxn, getTagIndexPrefix(tagName)) {
@@ -224,159 +222,78 @@ func (ns *Space) ShowTagIndexesByTagName(tagName string) ([]string, bool, error)
 		}
 	}
 
-	return result, true, nil
+	return newResultTWithData(r, result)
 }
 
-func (ns *Space) CreateTagIndex(tagIndex *TagIndexSchema) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		tagIndex.CreateIndexString(),
-	}
-
-	return ns.Execute(strings.Join(command, ""))
+func (s *Space) CreateTagIndex(tagIndex *TagIndexSchema) *Result {
+	return s.Execute(tagIndex.CreateIndexString())
 }
 
-func (ns *Space) DropTagIndex(indexName ...string) (*nebulago.ResultSet, bool, error) {
-	command := make([]string, len(indexName)+1)
-	command[0] = "USE " + ns.Name + ";"
+func (s *Space) DropTagIndex(indexName ...string) *Result {
+	commands := make([]string, len(indexName))
 	for i, idx := range indexName {
-		command[i+1] = "DROP TAG INDEX IF EXISTS " + idx + ";"
+		commands[i] = "DROP TAG INDEX IF EXISTS " + idx
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(commands...)
 }
 
-func (ns *Space) DropTagIndexByTagName(tagName string) (*nebulago.ResultSet, bool, error) {
-	idxNames, ok, err := ns.ShowTagIndexesByTagName(tagName)
-	if !ok {
-		return nil, false, err
+func (s *Space) DropTagIndexByTagName(tagName string) *Result {
+	r := s.ShowTagIndexesByTagName(tagName)
+	if !r.Ok {
+		return r.Result
 	}
 
-	return ns.DropTagIndex(idxNames...)
+	return s.DropTagIndex(r.Data...)
 }
 
-func (ns *Space) DescribeTagIndex(indexName string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DescribeTagIndex(indexName string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"DESCRIBE TAG INDEX " + indexName + ";",
+		"DESCRIBE TAG INDEX " + indexName,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) RebuildTagIndex(indexName string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) RebuildTagIndex(indexName string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"REBUILD TAG INDEX " + indexName + ";",
+		"REBUILD TAG INDEX " + indexName,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ShowTagIndexStatus() (*nebulago.ResultSet, bool, error) {
+func (s *Space) ShowTagIndexStatus() *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"SHOW TAG INDEX STATUS;",
+		"SHOW TAG INDEX STATUS",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) InsertVertex(t TagEntity) (*nebulago.ResultSet, bool, error) {
-	pns, pvs := GetInsertPropertiesNamesAndValuesString(t)
-	command := []string{
-		"USE " + ns.Name + ";",
-		"INSERT VERTEX IF NOT EXISTS " + t.GetTagName() + "(" + pns + ") VALUES \"" + t.VID() + "\":(" + pvs + ");",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) InsertVertexes(vs ...TagEntity) (*nebulago.ResultSet, bool, error) {
+func (s *Space) BatchInsertMultiTagVertexes(batch int, vs []MultiTagEntity) *Result {
 	if len(vs) == 0 {
-		return nil, false, errors.New("no vertexes")
-	}
-
-	pns, pvs := make([]string, len(vs)), make([]string, len(vs))
-
-	for i, t := range vs {
-		pn, pv := GetAllInsertPropertiesNamesAndValuesString(t)
-		pns[i] = pn
-		pvs[i] = "\"" + t.VID() + "\":(" + pv + ")"
-	}
-
-	command := []string{
-		"USE " + ns.Name + ";",
-		"INSERT VERTEX IF NOT EXISTS " + vs[0].GetTagName() + "(" + pns[0] + ") VALUES " + strings.Join(pvs, ", ") + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) BatchInsertVertexes(batch int, vs []TagEntity) (bool, error) {
-	if len(vs) == 0 {
-		return false, errors.New("no vertexes")
+		return newErrorResult(errors.New("no vertexes"))
 	}
 
 	chunk := lo.Chunk(vs, batch)
 
+	cmds := make([]string, 0)
 	for i, c := range chunk {
-		_, ok, err := ns.InsertVertexes(c...)
+		r := s.InsertMultiTagVertexes(c...)
+		cmds = append(cmds, r.Commands...)
 
-		if !ok {
-			return false, errors.New(fmt.Sprintf("insert batch %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+		if !r.Ok {
+			return newErrorResult(errors.New(fmt.Sprintf("insert batch %d multitag vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error())))
 		}
 	}
 
-	return true, nil
+	return newSuccessResult(cmds...)
 }
 
-func (ns *Space) InsertMultiTagVertex(v MultiTagEntity) (*nebulago.ResultSet, bool, error) {
-	tagsWithPropertiesString := ""
-	tagsPropertyValueListString := ""
-
-	tags := v.GetTags()
-	tagsWithProperties := make([]string, len(tags))
-	tagsPropertyValueList := make([]string, 0)
-
-	for _, tag := range tags {
-		tagWithProperties, propertyValueList := GetAllInsertTagWithPropertiesAndPropertyValueList(tag)
-		tagsWithProperties = append(tagsWithProperties, tagWithProperties)
-		tagsPropertyValueList = append(tagsPropertyValueList, propertyValueList...)
-	}
-
-	tagsWithPropertiesString = strings.Join(tagsWithProperties, ", ")
-	tagsPropertyValueListString = "\"" + v.VID() + "\":(" + strings.Join(tagsPropertyValueList, ", ") + ")"
-
-	command := []string{
-		"USE " + ns.Name + ";",
-		"INSERT VERTEX IF NOT EXISTS " + tagsWithPropertiesString + " VALUES " + tagsPropertyValueListString + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) BatchInsertMultiTagVertexes(batch int, vs []MultiTagEntity) (bool, error) {
+func (s *Space) InsertMultiTagVertexes(vs ...MultiTagEntity) *Result {
 	if len(vs) == 0 {
-		return false, errors.New("no vertexes")
-	}
-
-	chunk := lo.Chunk(vs, batch)
-
-	for i, c := range chunk {
-		_, ok, err := ns.InsertMultiTagVertexes(c...)
-
-		if !ok {
-			return false, errors.New(fmt.Sprintf("insert batch %d multitag vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
-		}
-	}
-
-	return true, nil
-}
-
-func (ns *Space) InsertMultiTagVertexes(vs ...MultiTagEntity) (*nebulago.ResultSet, bool, error) {
-	if len(vs) == 0 {
-		return nil, false, errors.New("no vertexes")
+		return newErrorResult(errors.New("no vertexes"))
 	}
 
 	vst, vsv := make([]string, len(vs)), make([]string, len(vs))
@@ -398,257 +315,129 @@ func (ns *Space) InsertMultiTagVertexes(vs ...MultiTagEntity) (*nebulago.ResultS
 	}
 
 	command := []string{
-		"USE " + ns.Name + ";",
 		"INSERT VERTEX IF NOT EXISTS " + vst[0] + " VALUES " + strings.Join(vsv, ", ") + ";",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) UpdateVertex(v TagEntity) (*nebulago.ResultSet, bool, error) {
+func (s *Space) ShowEdges() *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		GetTagUpdateString(v),
+		"SHOW EDGES",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) UpdateVertexes(vs ...TagEntity) (*nebulago.ResultSet, bool, error) {
-	if len(vs) == 0 {
-		return nil, false, errors.New("no vertexes")
-	}
-
-	command := make([]string, len(vs)+1)
-	command[0] = "USE " + ns.Name + ";"
-	for i, t := range vs {
-		command[i+1] = GetTagUpdateString(t)
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) BatchUpdateVertexes(batch int, vs []TagEntity) (bool, error) {
-	if len(vs) == 0 {
-		return false, errors.New("no vertexes")
-	}
-
-	chunk := lo.Chunk(vs, batch)
-
-	for i, c := range chunk {
-		_, ok, err := ns.UpdateVertexes(c...)
-
-		if !ok {
-			return false, errors.New(fmt.Sprintf("update batch %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
-		}
-	}
-
-	return true, nil
-}
-
-func (ns *Space) UpsertVertex(t TagEntity) (*nebulago.ResultSet, bool, error) {
-	pns, pvs := GetUpdatePropertiesNamesAndValuesString(t)
-
+func (s *Space) CreateEdge(edge *EdgeSchema) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"UPSERT VERTEX ON " + t.GetTagName() + " \"" + t.VID() + "\" SET " + pvs + " YIELD " + pns + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteVertex(t TagEntity) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		"DELETE VERTEX \"" + t.VID() + "\";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteVertexes(ts ...TagEntity) (*nebulago.ResultSet, bool, error) {
-	if len(ts) == 0 {
-		return nil, false, errors.New("no tags")
-	}
-
-	vids := make([]string, len(ts))
-	for i, t := range ts {
-		vids[i] = "\"" + t.VID() + "\""
-	}
-
-	command := []string{
-		"USE " + ns.Name + ";",
-		"DELETE VERTEX \"" + strings.Join(vids, ", ") + "\";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteVertexByTag(t TagEntity) (bool, error) {
-	return ns.DeleteVertexByVertexQuery(fmt.Sprintf("lookup on %s yield id(vertex) as vid", t.GetTagName()))
-}
-
-func (ns *Space) DeleteVertexByVertexQuery(vertexQuery string) (bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		fmt.Sprintf("%s | delete vertex $-.vid;", vertexQuery),
-	}
-
-	_, ok, err := ns.Execute(strings.Join(command, ""))
-
-	return ok, err
-}
-
-func (ns *Space) DeleteVertexWithEdge(t TagEntity) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		"DELETE VERTEX \"" + t.VID() + "\" WITH EDGE;",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteVertexWithEdgeByTagName(tagName string) (*nebulago.ResultSet, bool, error) {
-	return ns.DeleteVertexWithEDGEByVertexQuery(fmt.Sprintf("lookup on %s yield id(vertex) as vid", tagName))
-}
-
-func (ns *Space) DeleteVertexWithEDGEByVertexQuery(vertexQuery string) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		fmt.Sprintf("%s | delete vertex $-.vid WITH EDGE;", vertexQuery),
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) ShowEdges() (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		"SHOW EDGES;",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) CreateEdge(edge *EdgeSchema) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
 		edge.CreateString(),
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropEdge(edgeName string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DropEdge(edgeName string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"DROP EDGE IF EXISTS " + edgeName + ";",
+		"DROP EDGE IF EXISTS " + edgeName,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DescribeEdge(edge string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DescribeEdge(edge string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"DESCRIBE EDGE " + edge + ";",
+		"DESCRIBE EDGE " + edge,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) AddEdgeProperty(edge string, property *EdgePropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) AddEdgeProperty(edge string, property *EdgePropertySchema) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER EDGE " + edge + " ADD (" + property.String() + ");",
+		"ALTER EDGE " + edge + " ADD (" + property.String() + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) AddEdgeProperties(edge string, properties []*EdgePropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) AddEdgeProperties(edge string, properties []*EdgePropertySchema) *Result {
 	propertiesString := make([]string, len(properties))
 	for i, prop := range properties {
 		propertiesString[i] = prop.String()
 	}
 
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER EDGE " + edge + " ADD (" + strings.Join(propertiesString, ", ") + ");",
+		"ALTER EDGE " + edge + " ADD (" + strings.Join(propertiesString, ", ") + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ChangeEdgeProperty(edge string, property *EdgePropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) ChangeEdgeProperty(edge string, property *EdgePropertySchema) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER EDGE " + edge + " CHANGE (" + property.String() + ");",
+		"ALTER EDGE " + edge + " CHANGE (" + property.String() + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ChangeEdgeProperties(edge string, properties []*EdgePropertySchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) ChangeEdgeProperties(edge string, properties []*EdgePropertySchema) *Result {
 	propertiesString := make([]string, len(properties))
 	for i, prop := range properties {
 		propertiesString[i] = prop.String()
 	}
 
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER EDGE " + edge + " CHANGE (" + strings.Join(propertiesString, ", ") + ");",
+		"ALTER EDGE " + edge + " CHANGE (" + strings.Join(propertiesString, ", ") + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropEdgeProperty(edge string, property string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DropEdgeProperty(edge string, property string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER EDGE " + edge + " DROP (" + property + ");",
+		"ALTER EDGE " + edge + " DROP (" + property + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropEdgeProperties(edge string, properties []string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DropEdgeProperties(edge string, properties []string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"ALTER EDGE " + edge + " DROP (" + strings.Join(properties, ", ") + ");",
+		"ALTER EDGE " + edge + " DROP (" + strings.Join(properties, ", ") + ")",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ShowEdgeIndexes() (*nebulago.ResultSet, bool, error) {
+func (s *Space) ShowEdgeIndexes() *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"SHOW EDGE INDEXES;",
+		"SHOW EDGE INDEXES",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ShowEdgeIndexesByEdgeName(edgeName string) ([]string, bool, error) {
-	resultSet, ok, err := ns.ShowEdgeIndexes()
+func (s *Space) ShowEdgeIndexesByEdgeName(edgeName string) *ResultT[[]string] {
+	r := s.ShowEdgeIndexes()
 
-	if !ok {
-		return nil, false, err
+	if !r.Ok {
+		return newResultT[[]string](r)
 	}
 
 	result := make([]string, 0)
 
-	idxNames, err := resultSet.GetValuesByColName("Index Name")
+	idxNames, err := r.DataSet.GetValuesByColName("Index Name")
 
 	if err != nil {
-		return nil, false, err
+		return newErrorResultT[[]string](err)
 	}
 
 	for _, idxName := range idxNames {
 		idxn, err := idxName.AsString()
 		if err != nil {
-			return nil, false, err
+			return newErrorResultT[[]string](err)
 		}
 
 		if strings.HasPrefix(idxn, getEdgeIndexPrefix(edgeName)) {
@@ -656,248 +445,105 @@ func (ns *Space) ShowEdgeIndexesByEdgeName(edgeName string) ([]string, bool, err
 		}
 	}
 
-	return result, true, nil
+	return newResultTWithData[[]string](r, result)
 }
 
-func (ns *Space) CreateEdgeIndex(edgeIndex *EdgeIndexSchema) (*nebulago.ResultSet, bool, error) {
+func (s *Space) CreateEdgeIndex(edgeIndex *EdgeIndexSchema) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
 		edgeIndex.CreateIndexString(),
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropEdgeIndex(indexName ...string) (*nebulago.ResultSet, bool, error) {
-	command := make([]string, len(indexName)+1)
-	command[0] = "USE " + ns.Name + ";"
+func (s *Space) DropEdgeIndex(indexName ...string) *Result {
+	command := make([]string, len(indexName))
 	for i, idx := range indexName {
-		command[i+1] = "DROP EDGE INDEX IF EXISTS " + idx + ";"
+		command[i] = "DROP EDGE INDEX IF EXISTS " + idx
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) DropEdgeIndexByEdgeName(edgeName string) (*nebulago.ResultSet, bool, error) {
-	idxNames, ok, err := ns.ShowEdgeIndexesByEdgeName(edgeName)
-	if !ok {
-		return nil, false, err
+func (s *Space) DropEdgeIndexByEdgeName(edgeName string) *Result {
+	r := s.ShowEdgeIndexesByEdgeName(edgeName)
+	if !r.Ok {
+		return r.Result
 	}
 
-	return ns.DropEdgeIndex(idxNames...)
+	return s.DropEdgeIndex(r.Data...)
 }
 
-func (ns *Space) DescribeEdgeIndex(indexName string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) DescribeEdgeIndex(indexName string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"DESCRIBE EDGE INDEX " + indexName + ";",
+		"DESCRIBE EDGE INDEX " + indexName,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) RebuildEdgeIndex(indexName string) (*nebulago.ResultSet, bool, error) {
+func (s *Space) RebuildEdgeIndex(indexName string) *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"REBUILD EDGE INDEX " + indexName + ";",
+		"REBUILD EDGE INDEX " + indexName,
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) ShowEdgeIndexStatus() (*nebulago.ResultSet, bool, error) {
+func (s *Space) ShowEdgeIndexStatus() *Result {
 	command := []string{
-		"USE " + ns.Name + ";",
-		"SHOW EDGE INDEX STATUS;",
+		"SHOW EDGE INDEX STATUS",
 	}
 
-	return ns.Execute(strings.Join(command, ""))
+	return s.Execute(command...)
 }
 
-func (ns *Space) CreateEdgeWithIndexes(edge *EdgeSchema) (bool, error) {
-	_, ok, err := ns.CreateEdge(edge)
+func (s *Space) CreateEdgeWithIndexes(edge *EdgeSchema) *Result {
+	cmds := make([]string, 0)
+	r := s.CreateEdge(edge)
+	cmds = append(cmds, r.Commands...)
 
-	if !ok {
-		return false, err
+	if !r.Ok {
+		return r
 	}
 
 	for _, idx := range edge.Indexes {
-		_, ok, err = ns.CreateEdgeIndex(idx)
+		r = s.CreateEdgeIndex(idx)
+		cmds = append(cmds, r.Commands...)
 
-		if !ok {
-			return false, err
+		if !r.Ok {
+			return r
 		}
 	}
 
-	return true, nil
+	return newSuccessResult(cmds...)
 }
 
-func (ns *Space) DropEdgeWithIndexes(edge string) (bool, error) {
+func (s *Space) DropEdgeWithIndexes(edge string) *Result {
+	cmds := make([]string, 0)
+	r := s.DropEdgeIndexByEdgeName(edge)
+	cmds = append(cmds, r.Commands...)
 
-	_, ok, err := ns.DropEdgeIndexByEdgeName(edge)
-
-	if !ok {
-		return ok, err
+	if !r.Ok {
+		return r
 	}
 
-	_, ok, err = ns.DropEdge(edge)
+	r = s.DropEdge(edge)
+	cmds = append(cmds, r.Commands...)
 
-	if !ok {
-		return ok, err
+	if !r.Ok {
+		return r
 	}
 
-	return true, nil
+	return newSuccessResult(cmds...)
 }
 
-func (ns *Space) RebuildEdgeWithIndexes(edge *EdgeSchema) (bool, error) {
-	ok, err := ns.DropEdgeWithIndexes(edge.Name)
+func (s *Space) RebuildEdgeWithIndexes(edge *EdgeSchema) *Result {
+	r := s.DropEdgeWithIndexes(edge.Name)
 
-	if !ok {
-		return ok, err
+	if !r.Ok {
+		return r
 	}
 
-	return ns.CreateEdgeWithIndexes(edge)
-}
-
-func (ns *Space) InsertEdge(e EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	pns, pvs := GetInsertPropertiesNamesAndValuesString(e)
-	command := []string{
-		"USE " + ns.Name + ";",
-		"INSERT EDGE IF NOT EXISTS " + e.GetEdgeName() + "(" + pns + ") VALUES " + e.EID() + ":(" + pvs + ");",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) InsertEdges(es ...EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	if len(es) == 0 {
-		return nil, false, errors.New("no edges")
-	}
-
-	pns, pvs := make([]string, len(es)), make([]string, len(es))
-
-	for i, e := range es {
-		pn, pv := GetInsertPropertiesNamesAndValuesString(e)
-		pns[i] = pn
-		pvs[i] = e.EID() + ":(" + pv + ")"
-	}
-
-	command := []string{
-		"USE " + ns.Name + ";",
-		"INSERT EDGE IF NOT EXISTS " + es[0].GetEdgeName() + "(" + pns[0] + ") VALUES " + strings.Join(pvs, ", ") + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) BatchInsertEdges(batch int, es []EdgeEntity) (bool, error) {
-	if len(es) == 0 {
-		return false, errors.New("no edges")
-	}
-
-	chunk := lo.Chunk(es, batch)
-
-	for i, c := range chunk {
-		_, ok, err := ns.InsertEdges(c...)
-
-		if !ok {
-			return false, errors.New(fmt.Sprintf("insert batch %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
-		}
-	}
-
-	return true, nil
-}
-
-func (ns *Space) UpdateEdge(e EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		GetEdgeUpdateString(e),
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) UpdateEdges(es ...EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	if len(es) == 0 {
-		return nil, false, errors.New("no edges")
-	}
-
-	command := make([]string, len(es)+1)
-	command[0] = "USE " + ns.Name + ";"
-	for i, t := range es {
-		command[i+1] = GetEdgeUpdateString(t)
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) BatchUpdateEdges(batch int, es []EdgeEntity) (bool, error) {
-	if len(es) == 0 {
-		return false, errors.New("no edges")
-	}
-
-	chunk := lo.Chunk(es, batch)
-
-	for i, c := range chunk {
-		_, ok, err := ns.UpdateEdges(c...)
-
-		if !ok {
-			return false, errors.New(fmt.Sprintf("update batch %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
-		}
-	}
-
-	return true, nil
-}
-
-func (ns *Space) UpsertEdge(e EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	pns, pvs := GetUpdatePropertiesNamesAndValuesString(e)
-
-	command := []string{
-		"USE " + ns.Name + ";",
-		"UPSERT EDGE ON " + e.GetEdgeName() + " " + e.EID() + " SET " + pvs + " YIELD " + pns + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteEdge(e EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		"DELETE EDGE " + e.GetEdgeName() + " " + e.EID() + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteEdges(es ...EdgeEntity) (*nebulago.ResultSet, bool, error) {
-	if len(es) == 0 {
-		return nil, false, errors.New("no edges")
-	}
-
-	eids := make([]string, len(es))
-	for i, e := range es {
-		eids[i] = e.EID()
-	}
-
-	command := []string{
-		"USE " + ns.Name + ";",
-		"DELETE EDGE " + es[0].GetEdgeName() + " " + strings.Join(eids, ", ") + ";",
-	}
-
-	return ns.Execute(strings.Join(command, ""))
-}
-
-func (ns *Space) DeleteEdgeByEdge(e EdgeEntity) (bool, error) {
-	return ns.DeleteEdgeByEdgeQuery(e.GetEdgeName(), fmt.Sprintf("lookup on %s yield src(edge) as src, dst(edge) as dst", e.GetEdgeName()))
-}
-
-func (ns *Space) DeleteEdgeByEdgeQuery(edgeName string, edgeQuery string) (bool, error) {
-	command := []string{
-		"USE " + ns.Name + ";",
-		fmt.Sprintf("%s | delete edge %s  $-.src -> $-.dst", edgeQuery, edgeName),
-	}
-
-	_, ok, err := ns.Execute(strings.Join(command, ""))
-
-	return ok, err
+	return s.CreateEdgeWithIndexes(edge)
 }

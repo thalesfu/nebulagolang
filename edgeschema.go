@@ -112,6 +112,7 @@ func generateEdgeSchema(t reflect.Type) (*EdgeSchema, bool) {
 			edgeSchema.AddProperty(prop)
 		}
 
+		edgeSchema.AddIndex()
 		for _, index := range indexes {
 			edgeSchema.AddIndex(index...)
 		}
