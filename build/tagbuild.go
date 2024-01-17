@@ -16,10 +16,10 @@ func CreateTagWithIndexes[T interface{}](space *nebulagolang.Space) {
 		log.Fatalf("%sCREATE %s TAG SCHEMA FAILED%s\n", utils.PrintColorRed, reflect.TypeOf(zeroT).Name(), utils.PrintColorReset)
 	}
 
-	ok, err := space.CreateTagWithIndexes(tag)
+	r := space.CreateTagWithIndexes(tag)
 
-	if !ok {
-		log.Fatalf("%sCREATE %s failed%s\nError Detail: \n%v", utils.PrintColorRed, tag.Comment, utils.PrintColorReset, err)
+	if !r.Ok {
+		log.Fatalf("%sCREATE %s failed%s\nError Detail: \n%v", utils.PrintColorRed, tag.Comment, utils.PrintColorReset, r.Err)
 	}
 
 	log.Printf("%sCREATE %s SUCCESS%s\n", utils.PrintColorGreen, tag.Comment, utils.PrintColorReset)
@@ -34,10 +34,10 @@ func RebuildTagWithIndexes[T interface{}](space *nebulagolang.Space) {
 		log.Fatalf("%sCREATE %s TAG SCHEMA FAILED%s\n", utils.PrintColorRed, reflect.TypeOf(zeroT).Name(), utils.PrintColorReset)
 	}
 
-	ok, err := space.RebuildTagWithIndexes(tag)
+	r := space.RebuildTagWithIndexes(tag)
 
-	if !ok {
-		log.Fatalf("%sCREATE %s FAILED%s\nERROR DETAIL: \n%v", utils.PrintColorRed, tag.Comment, utils.PrintColorReset, err)
+	if !r.Ok {
+		log.Fatalf("%sCREATE %s FAILED%s\nERROR DETAIL: \n%v", utils.PrintColorRed, tag.Comment, utils.PrintColorReset, r.Err)
 	}
 
 	log.Printf("%sCREATE %s SUCCESS%s\n", utils.PrintColorGreen, tag.Comment, utils.PrintColorReset)
