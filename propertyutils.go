@@ -154,7 +154,8 @@ func MappingRowDataToPropertyValue(ft reflect.StructField, fv reflect.Value, val
 			switch tagProperty {
 			case "Date":
 				if value.GetDVal() != nil {
-					t, _ := time.Parse("2006-01-02", fmt.Sprintf("%d-%d-%d", value.GetDVal().GetYear(), value.GetDVal().GetMonth(), value.GetDVal().GetDay()))
+					dateString := fmt.Sprintf("%04d-%02d-%02d", value.GetDVal().GetYear(), value.GetDVal().GetMonth(), value.GetDVal().GetDay())
+					t, _ := time.Parse("2006-01-02", dateString)
 					fv.Set(reflect.ValueOf(t))
 				}
 			case "DateTime":

@@ -26,7 +26,7 @@ func YieldEdgePropertyNamesCommand(t reflect.Type) string {
 	commands := make([]string, len(pns)+1)
 	commands[0] = YieldEdgeFromVidToVidCommand
 	for i, pn := range pns {
-		commands[i+1] = "properties($-.v)." + pn + " AS " + pn
+		commands[i+1] = "properties($-.e)." + pn + " AS " + pn
 	}
 
 	return strings.Join(commands, ", ")
