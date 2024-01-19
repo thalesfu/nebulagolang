@@ -42,7 +42,7 @@ func BatchInsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		cmds = append(cmds, r.Commands...)
 
 		if !ok {
-			r.Err = errors.New(fmt.Sprintf("insert batch %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+			r.Err = errors.New(fmt.Sprintf("batch insert %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
 			return r
 		}
 	}
@@ -76,7 +76,7 @@ func BatchUpdateVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		cmds = append(cmds, r.Commands...)
 
 		if !r.Ok {
-			r.Err = errors.New(fmt.Sprintf("update batch %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
+			r.Err = errors.New(fmt.Sprintf("batch update %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
 			return r
 		}
 	}
@@ -110,7 +110,7 @@ func BatchUpsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		cmds = append(cmds, r.Commands...)
 
 		if !r.Ok {
-			r.Err = errors.New(fmt.Sprintf("upsert batch %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
+			r.Err = errors.New(fmt.Sprintf("batch upsert %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
 			return r
 		}
 	}
@@ -124,6 +124,32 @@ func DeleteVertexes[T interface{}](space *Space, vs ...T) *Result {
 	}
 
 	return space.Execute(vertexDeleteByVertexesVidsCommand(vs...))
+}
+
+func BatchDeleteVertexes[T interface{}](space *Space, batch int, vs []T) *Result {
+	if len(vs) == 0 {
+		return newErrorResult(errors.New("no vertexes"))
+	}
+
+	ok, err := IsVertex[T]()
+	if !ok {
+		return newErrorResult(err)
+	}
+
+	cmds := make([]string, 0)
+	chunk := lo.Chunk(vs, batch)
+
+	for i, c := range chunk {
+		r := DeleteVertexes(space, c...)
+		cmds = append(cmds, r.Commands...)
+
+		if !ok {
+			r.Err = errors.New(fmt.Sprintf("batch delete %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+			return r
+		}
+	}
+
+	return newSuccessResult(cmds...)
 }
 
 func DeleteVertexesByVids(space *Space, vids ...string) *Result {
@@ -151,9 +177,12 @@ func DeleteVertexesWithEdgesByVids(space *Space, vids ...string) *Result {
 }
 
 func DeleteAllVertexesByTag[T interface{}](space *Space) *Result {
-	return DeleteVertexByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), ""))
+	return DeleteAllVertexesByQuery[T](space, "")
 }
 
+func DeleteAllVertexesByQuery[T interface{}](space *Space, query string) *Result {
+	return DeleteVertexByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), query))
+}
 func DeleteVertexByQuery(space *Space, query string) *Result {
 	return space.Execute(vertexesDeleteByQueryCommand(query))
 }
@@ -164,6 +193,10 @@ func DeleteVertexWithEdgeByQuery(space *Space, vertexQuery string) *Result {
 
 func DeleteAllVertexesWithEdgesByTag[T interface{}](space *Space) *Result {
 	return DeleteVertexWithEdgeByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), ""))
+}
+
+func DeleteAllVertexesWithEdgesByQuery[T interface{}](space *Space, query string) *Result {
+	return DeleteVertexWithEdgeByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), query))
 }
 
 func LoadVertex[T interface{}](space *Space, t T) *Result {
@@ -212,6 +245,10 @@ func GetVertexByVid[T interface{}](space *Space, vid string) *ResultT[T] {
 	data := BuildNewVertexFromResult[T](r.DataSet)
 
 	return newResultTWithData(r, data)
+}
+
+func GetAllVertexesByVertexType[T interface{}](space *Space) *ResultT[map[string]T] {
+	return GetAllVertexesByQuery[T](space, "")
 }
 
 func GetAllVertexesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {

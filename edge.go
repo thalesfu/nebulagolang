@@ -42,7 +42,7 @@ func BatchInsertEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		cmds = append(cmds, r.Commands...)
 
 		if !r.Ok {
-			r.Err = errors.New(fmt.Sprintf("insert batch %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+			r.Err = errors.New(fmt.Sprintf("batch insert %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
 			return r
 		}
 	}
@@ -76,7 +76,7 @@ func BatchUpdateEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		cmds = append(cmds, r.Commands...)
 
 		if !r.Ok {
-			r.Err = errors.New(fmt.Sprintf("update batch %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
+			r.Err = errors.New(fmt.Sprintf("batch update %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
 			return r
 		}
 	}
@@ -110,7 +110,7 @@ func BatchUpsertEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		cmds = append(cmds, r.Commands...)
 
 		if !r.Ok {
-			r.Err = errors.New(fmt.Sprintf("upsert batch %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
+			r.Err = errors.New(fmt.Sprintf("batch upsert %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
 			return r
 		}
 	}
@@ -131,6 +131,32 @@ func DeleteEdges[T interface{}](space *Space, es ...T) *Result {
 	return space.Execute(edgeDeleteByEidsCommand(eids...))
 }
 
+func BatchDeleteEdges[T interface{}](space *Space, batch int, es []T) *Result {
+	if len(es) == 0 {
+		return newErrorResult(errors.New("no edges"))
+	}
+
+	ok, err := IsEdge[T]()
+	if !ok {
+		return newErrorResult(err)
+	}
+
+	chunk := lo.Chunk(es, batch)
+
+	cmds := make([]string, 0)
+	for i, c := range chunk {
+		r := DeleteEdges(space, c...)
+		cmds = append(cmds, r.Commands...)
+
+		if !r.Ok {
+			r.Err = errors.New(fmt.Sprintf("batch delete %d edges from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+			return r
+		}
+	}
+
+	return newSuccessResult(cmds...)
+}
+
 func DeleteEdgesByFromIdAndToId[T interface{}](space *Space, fromId string, toId string) *Result {
 	return space.Execute(edgeDeleteByEidsCommand(NewEID(fromId, toId, GetEdgeName[T]())))
 }
@@ -144,7 +170,11 @@ func DeleteEdgesByEids(space *Space, eids ...*EID) *Result {
 }
 
 func DeleteAllEdgesByEdgeType[T interface{}](space *Space) *Result {
-	return DeleteEdgesByQuery[T](space, AllEdgesFromVidsAndToVidsByQueryCommand(utils.GetType[T](), ""))
+	return DeleteAllEdgesByQuery[T](space, "")
+}
+
+func DeleteAllEdgesByQuery[T interface{}](space *Space, query string) *Result {
+	return DeleteEdgesByQuery[T](space, AllEdgesFromVidsAndToVidsByQueryCommand(utils.GetType[T](), query))
 }
 
 func DeleteEdgesByQuery[T interface{}](space *Space, query string) *Result {
@@ -204,7 +234,11 @@ func GetAllEdgesEIDsByQuery[T interface{}](space *Space, query string) *ResultT[
 }
 
 func GetAllEdgesByEdgeType[T interface{}](space *Space) *ResultT[map[string]T] {
-	return GetEdgesByQuery[T](space, LookupEdgeQueryCommand(utils.GetType[T](), ""))
+	return GetAllEdgesByQuery[T](space, "")
+}
+
+func GetAllEdgesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {
+	return GetEdgesByQuery[T](space, LookupEdgeQueryCommand(utils.GetType[T](), query))
 }
 
 func GetEdgesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {
@@ -508,12 +542,6 @@ func checkEdgeSearchResult(er *Result, fr *ResultT[map[string]reflect.Value], tr
 
 	if !tr.Ok {
 		return tr.Result
-	}
-
-	if len(er.DataSet.GetRows()) == 0 {
-		er.Ok = false
-		er.Err = NoData("Not found data by command: " + strings.Join(er.Commands, ""))
-		return er
 	}
 
 	return er
