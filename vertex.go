@@ -41,8 +41,8 @@ func BatchInsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		r := InsertVertexes(space, c...)
 		cmds = append(cmds, r.Commands...)
 
-		if !ok {
-			r.Err = errors.New(fmt.Sprintf("batch insert %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+		if !r.Ok {
+			r.Err = errors.New(fmt.Sprintf("batch insert %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
 			return r
 		}
 	}
@@ -143,8 +143,8 @@ func BatchDeleteVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		r := DeleteVertexes(space, c...)
 		cmds = append(cmds, r.Commands...)
 
-		if !ok {
-			r.Err = errors.New(fmt.Sprintf("batch delete %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, err.Error()))
+		if !r.Ok {
+			r.Err = errors.New(fmt.Sprintf("batch delete %d vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error()))
 			return r
 		}
 	}
