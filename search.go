@@ -29,24 +29,24 @@ func CountByQuery(space *Space, query string) *ResultT[int64] {
 	r := space.Execute(strings.Join(command, ""))
 
 	if !r.Ok {
-		return newResultT[int64](r)
+		return NewResultT[int64](r)
 	}
 
 	if len(r.DataSet.GetRows()) == 0 {
-		return newErrorResultT[int64](NoData("Not found data by command: " + strings.Join(r.Commands, "")))
+		return NewErrorResultT[int64](NoData("Not found data by command: " + strings.Join(r.Commands, "")))
 	}
 
 	values, err := r.DataSet.GetValuesByColName("count")
 
 	if err != nil {
-		return newErrorResultT[int64](err)
+		return NewErrorResultT[int64](err)
 	}
 
 	value, err := values[0].AsInt()
 
 	if err != nil {
-		return newErrorResultT[int64](err)
+		return NewErrorResultT[int64](err)
 	}
 
-	return newResultTWithData(r, value)
+	return NewResultTWithData(r, value)
 }

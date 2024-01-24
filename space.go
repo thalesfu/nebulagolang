@@ -19,7 +19,7 @@ func (s *Space) Execute(stmts ...string) *Result {
 
 	resultSet, ok, err := s.Nebula.Execute(finalStmts...)
 
-	return newResult(resultSet, ok, err, finalStmts...)
+	return NewResult(resultSet, ok, err, finalStmts...)
 }
 
 func (s *Space) Drop() *Result {
@@ -29,12 +29,12 @@ func (s *Space) Drop() *Result {
 	fmt.Scanln(&input)
 	if input == "我真的要删除"+s.Name+"这个空间" {
 		fmt.Println("就是不给你删，气死你！")
-		return newErrorResult(errors.New("就是不给你删，气死你！"))
+		return NewErrorResult(errors.New("就是不给你删，气死你！"))
 	} else if input == "气死了" {
 		fmt.Println("好吧，那就删了吧！")
 	} else {
 		fmt.Println("不给你删！")
-		return newErrorResult(errors.New("不给你删！"))
+		return NewErrorResult(errors.New("不给你删！"))
 	}
 
 	stmt := "DROP SPACE IF EXISTS " + s.Name
@@ -81,7 +81,7 @@ func (s *Space) CreateTagWithIndexes(tag *TagSchema) *Result {
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func (s *Space) DropTag(tag string) *Result {
@@ -109,7 +109,7 @@ func (s *Space) DropTagWithIndexes(tag string) *Result {
 		return r
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func (s *Space) RebuildTagWithIndexes(tag *TagSchema) *Result {
@@ -200,7 +200,7 @@ func (s *Space) ShowTagIndexesByTagName(tagName string) *ResultT[[]string] {
 	r := s.ShowTagIndexes()
 
 	if !r.Ok {
-		return newResultT[[]string](r)
+		return NewResultT[[]string](r)
 	}
 
 	result := make([]string, 0)
@@ -208,13 +208,13 @@ func (s *Space) ShowTagIndexesByTagName(tagName string) *ResultT[[]string] {
 	idxNames, err := r.DataSet.GetValuesByColName("Index Name")
 
 	if err != nil {
-		return newErrorResultT[[]string](err)
+		return NewErrorResultT[[]string](err)
 	}
 
 	for _, idxName := range idxNames {
 		idxn, err := idxName.AsString()
 		if err != nil {
-			return newErrorResultT[[]string](err)
+			return NewErrorResultT[[]string](err)
 		}
 
 		if strings.HasPrefix(idxn, getTagIndexPrefix(tagName)) {
@@ -222,7 +222,7 @@ func (s *Space) ShowTagIndexesByTagName(tagName string) *ResultT[[]string] {
 		}
 	}
 
-	return newResultTWithData(r, result)
+	return NewResultTWithData(r, result)
 }
 
 func (s *Space) CreateTagIndex(tagIndex *TagIndexSchema) *Result {
@@ -273,7 +273,7 @@ func (s *Space) ShowTagIndexStatus() *Result {
 
 func (s *Space) BatchInsertMultiTagVertexes(batch int, vs []MultiTagEntity) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	chunk := lo.Chunk(vs, batch)
@@ -284,16 +284,16 @@ func (s *Space) BatchInsertMultiTagVertexes(batch int, vs []MultiTagEntity) *Res
 		cmds = append(cmds, r.Commands...)
 
 		if !r.Ok {
-			return newErrorResult(errors.New(fmt.Sprintf("insert batch %d multitag vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error())))
+			return NewErrorResult(errors.New(fmt.Sprintf("insert batch %d multitag vertexes from %d to %d failed: %s", i, i*batch, len(c)-1, r.Err.Error())))
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func (s *Space) InsertMultiTagVertexes(vs ...MultiTagEntity) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	vst, vsv := make([]string, len(vs)), make([]string, len(vs))
@@ -423,7 +423,7 @@ func (s *Space) ShowEdgeIndexesByEdgeName(edgeName string) *ResultT[[]string] {
 	r := s.ShowEdgeIndexes()
 
 	if !r.Ok {
-		return newResultT[[]string](r)
+		return NewResultT[[]string](r)
 	}
 
 	result := make([]string, 0)
@@ -431,13 +431,13 @@ func (s *Space) ShowEdgeIndexesByEdgeName(edgeName string) *ResultT[[]string] {
 	idxNames, err := r.DataSet.GetValuesByColName("Index Name")
 
 	if err != nil {
-		return newErrorResultT[[]string](err)
+		return NewErrorResultT[[]string](err)
 	}
 
 	for _, idxName := range idxNames {
 		idxn, err := idxName.AsString()
 		if err != nil {
-			return newErrorResultT[[]string](err)
+			return NewErrorResultT[[]string](err)
 		}
 
 		if strings.HasPrefix(idxn, getEdgeIndexPrefix(edgeName)) {
@@ -445,7 +445,7 @@ func (s *Space) ShowEdgeIndexesByEdgeName(edgeName string) *ResultT[[]string] {
 		}
 	}
 
-	return newResultTWithData[[]string](r, result)
+	return NewResultTWithData[[]string](r, result)
 }
 
 func (s *Space) CreateEdgeIndex(edgeIndex *EdgeIndexSchema) *Result {
@@ -516,7 +516,7 @@ func (s *Space) CreateEdgeWithIndexes(edge *EdgeSchema) *Result {
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func (s *Space) DropEdgeWithIndexes(edge string) *Result {
@@ -535,7 +535,7 @@ func (s *Space) DropEdgeWithIndexes(edge string) *Result {
 		return r
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func (s *Space) RebuildEdgeWithIndexes(edge *EdgeSchema) *Result {

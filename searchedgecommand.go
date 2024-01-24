@@ -6,10 +6,15 @@ import (
 	"strings"
 )
 
-const YieldEdgeFromVidToVidCommand = "YIELD src($-.e) AS src, dst($-.e) AS dst"
+func YieldEdgeFromVidToVidCommand(t reflect.Type) string {
+	if hasEdgeRank(t) {
+		return fmt.Sprintf("YIELD src($-.e) AS src, dst($-.e) AS dst, rank($-.e) AS edgerank")
+	}
+	return fmt.Sprintf("YIELD src($-.e) AS src, dst($-.e) AS dst")
+}
 
 func AllEdgesFromVidsAndToVidsByQueryCommand(t reflect.Type, query string) string {
-	return CommandPipelineCombine(LookupEdgeQueryCommand(t, query), YieldEdgeFromVidToVidCommand)
+	return CommandPipelineCombine(LookupEdgeQueryCommand(t, query), YieldEdgeFromVidToVidCommand(t))
 }
 func LookupEdgeQueryCommand(t reflect.Type, query string) string {
 	edgeName := getEdgeNameByReflectType(t)
@@ -24,7 +29,7 @@ func YieldEdgePropertyNamesCommand(t reflect.Type) string {
 	pns := GetPropertiesNames(t)
 
 	commands := make([]string, len(pns)+1)
-	commands[0] = YieldEdgeFromVidToVidCommand
+	commands[0] = YieldEdgeFromVidToVidCommand(t)
 	for i, pn := range pns {
 		commands[i+1] = "properties($-.e)." + pn + " AS " + pn
 	}

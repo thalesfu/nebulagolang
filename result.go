@@ -9,7 +9,7 @@ type Result struct {
 	Err      error
 }
 
-func newResult(dataset *nebulago.ResultSet, ok bool, err error, commands ...string) *Result {
+func NewResult(dataset *nebulago.ResultSet, ok bool, err error, commands ...string) *Result {
 	return &Result{
 		Commands: commands,
 		DataSet:  dataset,
@@ -18,14 +18,14 @@ func newResult(dataset *nebulago.ResultSet, ok bool, err error, commands ...stri
 	}
 }
 
-func newErrorResult(err error) *Result {
+func NewErrorResult(err error) *Result {
 	return &Result{
 		Ok:  false,
 		Err: err,
 	}
 }
 
-func newSuccessResult(commands ...string) *Result {
+func NewSuccessResult(commands ...string) *Result {
 	return &Result{
 		Commands: commands,
 		Ok:       true,
@@ -37,34 +37,34 @@ type ResultT[T any] struct {
 	Data T
 }
 
-func newResultT[T any](result *Result) *ResultT[T] {
+func NewResultT[T any](result *Result) *ResultT[T] {
 	return &ResultT[T]{
 		Result: result,
 	}
 }
 
-func newResultTWithData[T any](result *Result, data T) *ResultT[T] {
+func NewResultTWithData[T any](result *Result, data T) *ResultT[T] {
 	return &ResultT[T]{
 		Result: result,
 		Data:   data,
 	}
 }
 
-func newResultTWithError[T any](result *Result, err error) *ResultT[T] {
+func NewResultTWithError[T any](result *Result, err error) *ResultT[T] {
 	result.Err = err
 	return &ResultT[T]{
 		Result: result,
 	}
 }
 
-func newErrorResultT[T any](err error) *ResultT[T] {
+func NewErrorResultT[T any](err error) *ResultT[T] {
 	return &ResultT[T]{
-		Result: newErrorResult(err),
+		Result: NewErrorResult(err),
 	}
 }
 
-func newSuccessResultT[T any](commands ...string) *ResultT[T] {
+func NewSuccessResultT[T any](commands ...string) *ResultT[T] {
 	return &ResultT[T]{
-		Result: newSuccessResult(commands...),
+		Result: NewSuccessResult(commands...),
 	}
 }

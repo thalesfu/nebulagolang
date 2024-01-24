@@ -136,7 +136,7 @@ func CompareAndUpdateNebulaEntityBySliceAndQuery[T interface{}](space *Space, ns
 		return CompareAndUpdateEdgesBySliceAndQuery[T](space, ns, query)
 	}
 
-	return newErrorResult(errors.New("not a vertex or edge")), nil
+	return NewErrorResult(errors.New("not a vertex or edge")), nil
 }
 
 func CompareAndUpdateNebulaEntityByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string) (*Result, *CompareResult[T]) {
@@ -152,7 +152,7 @@ func CompareAndUpdateNebulaEntityByMapAndQuery[T interface{}](space *Space, nm m
 		return CompareAndUpdateEdgesByMapAndQuery[T](space, nm, query)
 	}
 
-	return newErrorResult(errors.New("not a vertex or edge")), nil
+	return NewErrorResult(errors.New("not a vertex or edge")), nil
 }
 
 func CompareAndUpdateVertexesBySliceAndQuery[T interface{}](space *Space, ns []T, query string) (*Result, *CompareResult[T]) {
@@ -203,7 +203,7 @@ func CompareAndUpdateVertexesByMapAndQuery[T interface{}](space *Space, nm map[s
 		cmds = append(cmds, deleteResult.Commands...)
 	}
 
-	return newSuccessResult(cmds...), compareResult
+	return NewSuccessResult(cmds...), compareResult
 }
 
 func CompareAndUpdateEdgesBySliceAndQuery[T interface{}](space *Space, ns []T, query string) (*Result, *CompareResult[T]) {
@@ -254,5 +254,5 @@ func CompareAndUpdateEdgesByMapAndQuery[T interface{}](space *Space, nm map[stri
 		cmds = append(cmds, deleteResult.Commands...)
 	}
 
-	return newSuccessResult(cmds...), compareResult
+	return NewSuccessResult(cmds...), compareResult
 }

@@ -3,6 +3,7 @@ package nebulagolang
 import (
 	"bytes"
 	"fmt"
+	"github.com/thalesfu/nebulagolang/utils"
 	nebulago "github.com/vesoft-inc/nebula-go/v3"
 	nebulaggonebula "github.com/vesoft-inc/nebula-go/v3/nebula"
 	"reflect"
@@ -183,4 +184,60 @@ func MappingResultToMap(resultSet *nebulago.ResultSet) map[int]map[string]*nebul
 	}
 
 	return r
+}
+
+func GetPropertyQueryByPropertyNameAndValue[T interface{}](propertyName string, propertyValue any) string {
+	return GetPropertiesByRelfectTypeAndQuery(utils.GetType[T](), map[string]any{propertyName: propertyValue})
+}
+
+func GetPropertiesQuery[T interface{}](propertiesNamesAndValues map[string]any) string {
+	return GetPropertiesByRelfectTypeAndQuery(utils.GetType[T](), propertiesNamesAndValues)
+}
+
+func GetPropertiesByRelfectTypeAndQuery(t reflect.Type, propertiesNamesAndValues map[string]any) string {
+	itemName := getTagNameByReflectType(t)
+
+	if itemName == "" {
+		itemName = getEdgeNameByReflectType(t)
+	}
+
+	if len(propertiesNamesAndValues) == 0 {
+		return ""
+	}
+
+	pnvs := make([]string, len(propertiesNamesAndValues))
+	i := 0
+	for propertyName, propertyValue := range propertiesNamesAndValues {
+		pnvs[i] = fmt.Sprintf("%s.%s==%s", itemName, propertyName, getValueString(propertyValue))
+		i++
+	}
+
+	return strings.Join(pnvs, " AND ")
+}
+
+func getValueString(v any) string {
+	fv := utils.IndirectValue(reflect.ValueOf(v))
+
+	switch fv.Type().Kind() {
+	case reflect.String:
+		return "\"" + escapeSpecialChars(fv.String()) + "\""
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf("%d", fv.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%d", fv.Uint())
+	case reflect.Float32, reflect.Float64:
+		return fmt.Sprintf("%f", fv.Float())
+	default:
+		if fv.Type() == reflect.TypeOf(time.Time{}) {
+			t := fv.Interface().(time.Time)
+
+			if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
+				return fmt.Sprintf("DATE(\"%s\")", fv.Interface().(time.Time).Format("2006-01-02"))
+			} else {
+				return fmt.Sprintf("DATETIME(\"%s\")", fv.Interface().(time.Time).Format("2006-01-02 15:04:05"))
+			}
+		}
+
+		return fmt.Sprintf("%v", fv.Interface())
+	}
 }

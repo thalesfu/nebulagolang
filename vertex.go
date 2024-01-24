@@ -13,12 +13,12 @@ import (
 
 func InsertVertexes[T interface{}](space *Space, vs ...T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	ok, err := IsVertex[T]()
 	if !ok {
-		return newErrorResult(err)
+		return NewErrorResult(err)
 	}
 
 	return space.Execute(vertexInsertCommand(vs...))
@@ -26,12 +26,12 @@ func InsertVertexes[T interface{}](space *Space, vs ...T) *Result {
 
 func BatchInsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	ok, err := IsVertex[T]()
 	if !ok {
-		return newErrorResult(err)
+		return NewErrorResult(err)
 	}
 
 	cmds := make([]string, 0)
@@ -47,12 +47,12 @@ func BatchInsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func UpdateVertexes[T interface{}](space *Space, vs ...T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	commands := make([]string, len(vs))
@@ -65,7 +65,7 @@ func UpdateVertexes[T interface{}](space *Space, vs ...T) *Result {
 
 func BatchUpdateVertexes[T interface{}](space *Space, batch int, vs []T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	chunk := lo.Chunk(vs, batch)
@@ -81,12 +81,12 @@ func BatchUpdateVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func UpsertVertexes[T interface{}](space *Space, vs ...T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	commands := make([]string, len(vs))
@@ -99,7 +99,7 @@ func UpsertVertexes[T interface{}](space *Space, vs ...T) *Result {
 
 func BatchUpsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	chunk := lo.Chunk(vs, batch)
@@ -115,12 +115,12 @@ func BatchUpsertVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func DeleteVertexes[T interface{}](space *Space, vs ...T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	return space.Execute(vertexDeleteByVertexesVidsCommand(vs...))
@@ -128,12 +128,12 @@ func DeleteVertexes[T interface{}](space *Space, vs ...T) *Result {
 
 func BatchDeleteVertexes[T interface{}](space *Space, batch int, vs []T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	ok, err := IsVertex[T]()
 	if !ok {
-		return newErrorResult(err)
+		return NewErrorResult(err)
 	}
 
 	cmds := make([]string, 0)
@@ -149,12 +149,12 @@ func BatchDeleteVertexes[T interface{}](space *Space, batch int, vs []T) *Result
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func DeleteVertexesByVids(space *Space, vids ...string) *Result {
 	if len(vids) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	return space.Execute(vertexDeleteByVidsCommand(vids...))
@@ -162,7 +162,7 @@ func DeleteVertexesByVids(space *Space, vids ...string) *Result {
 
 func DeleteVertexesWithEdges[T interface{}](space *Space, vs ...T) *Result {
 	if len(vs) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	return space.Execute(vertexDeleteWithEdgeByVertexesVidsCommand(vs...))
@@ -170,7 +170,7 @@ func DeleteVertexesWithEdges[T interface{}](space *Space, vs ...T) *Result {
 
 func DeleteVertexesWithEdgesByVids(space *Space, vids ...string) *Result {
 	if len(vids) == 0 {
-		return newErrorResult(errors.New("no vertexes"))
+		return NewErrorResult(errors.New("no vertexes"))
 	}
 
 	return space.Execute(vertexDeleteWithEdgeByVidsCommand(vids...))
@@ -233,18 +233,18 @@ func GetVertexByVid[T interface{}](space *Space, vid string) *ResultT[T] {
 	r := FetchVertexData(space, utils.GetType[T](), vid)
 
 	if !r.Ok {
-		return newResultT[T](r)
+		return NewResultT[T](r)
 	}
 
 	if len(r.DataSet.GetRows()) == 0 {
 		r.Ok = false
 		r.Err = NoData("Not found data by command: " + strings.Join(r.Commands, ""))
-		return newResultT[T](r)
+		return NewResultT[T](r)
 	}
 
 	data := BuildNewVertexFromResult[T](r.DataSet)
 
-	return newResultTWithData(r, data)
+	return NewResultTWithData(r, data)
 }
 
 func GetAllVertexesByVertexType[T interface{}](space *Space) *ResultT[map[string]T] {
@@ -255,7 +255,7 @@ func GetAllVertexesByQuery[T interface{}](space *Space, query string) *ResultT[m
 	r := space.Execute(AllVertexesByQueryCommand(utils.GetType[T](), query))
 
 	if !r.Ok {
-		return newResultT[map[string]T](r)
+		return NewResultT[map[string]T](r)
 	}
 
 	data := MappingResultToMap(r.DataSet)
@@ -267,20 +267,20 @@ func GetAllVertexesByQuery[T interface{}](space *Space, query string) *ResultT[m
 		result[GetVID(vertex)] = vertex
 	}
 
-	return newResultTWithData(r, result)
+	return NewResultTWithData(r, result)
 }
 
 func GetAllVertexesVIDsByQuery[T interface{}](space *Space, query string) *ResultT[map[string]bool] {
 	r := space.Execute(AllVertexesVidsByQueryCommand(utils.GetType[T](), query))
 
 	if !r.Ok {
-		return newResultT[map[string]bool](r)
+		return NewResultT[map[string]bool](r)
 	}
 
 	values, err := r.DataSet.GetValuesByColName("vid")
 
 	if err != nil {
-		return newResultTWithError[map[string]bool](r, err)
+		return NewResultTWithError[map[string]bool](r, err)
 	}
 
 	result := make(map[string]bool)
@@ -288,13 +288,13 @@ func GetAllVertexesVIDsByQuery[T interface{}](space *Space, query string) *Resul
 	for _, value := range values {
 		v, err := value.AsString()
 		if err != nil {
-			return newResultTWithError[map[string]bool](r, err)
+			return NewResultTWithError[map[string]bool](r, err)
 		}
 
 		result[v] = true
 	}
 
-	return newResultTWithData(r, result)
+	return NewResultTWithData(r, result)
 }
 
 func GetAllVertexesPropertyByQuery[T interface{}](space *Space, query string, propertyName string, displayPropertyName string) *ResultT[map[string]bool] {
@@ -305,13 +305,13 @@ func GetAllVertexesPropertyByQuery[T interface{}](space *Space, query string, pr
 	r := space.Execute(AllVertexesPropertyByQueryCommand(utils.GetType[T](), query, propertyName, displayPropertyName))
 
 	if !r.Ok {
-		return newResultT[map[string]bool](r)
+		return NewResultT[map[string]bool](r)
 	}
 
 	values, err := r.DataSet.GetValuesByColName(displayPropertyName)
 
 	if err != nil {
-		return newResultTWithError[map[string]bool](r, err)
+		return NewResultTWithError[map[string]bool](r, err)
 	}
 
 	result := make(map[string]bool)
@@ -319,13 +319,13 @@ func GetAllVertexesPropertyByQuery[T interface{}](space *Space, query string, pr
 	for _, value := range values {
 		v, err := value.AsString()
 		if err != nil {
-			return newResultTWithError[map[string]bool](r, err)
+			return NewResultTWithError[map[string]bool](r, err)
 		}
 
 		result[v] = true
 	}
 
-	return newResultTWithData(r, result)
+	return NewResultTWithData(r, result)
 }
 
 func BuildNewVertexesFromResult[T interface{}](r *Result) []T {

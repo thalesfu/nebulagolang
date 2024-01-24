@@ -13,12 +13,12 @@ import (
 
 func InsertEdges[T interface{}](space *Space, es ...T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	ok, err := IsEdge[T]()
 	if !ok {
-		return newErrorResult(err)
+		return NewErrorResult(err)
 	}
 
 	return space.Execute(edgeInsertCommand[T](es...))
@@ -26,12 +26,12 @@ func InsertEdges[T interface{}](space *Space, es ...T) *Result {
 
 func BatchInsertEdges[T interface{}](space *Space, batch int, es []T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	ok, err := IsEdge[T]()
 	if !ok {
-		return newErrorResult(err)
+		return NewErrorResult(err)
 	}
 
 	chunk := lo.Chunk(es, batch)
@@ -47,12 +47,12 @@ func BatchInsertEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func UpdateEdges[T interface{}](space *Space, es ...T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	commands := make([]string, len(es))
@@ -65,7 +65,7 @@ func UpdateEdges[T interface{}](space *Space, es ...T) *Result {
 
 func BatchUpdateEdges[T interface{}](space *Space, batch int, es []T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	chunk := lo.Chunk(es, batch)
@@ -81,12 +81,12 @@ func BatchUpdateEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func UpsertEdges[T interface{}](space *Space, es ...T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	commands := make([]string, len(es))
@@ -99,7 +99,7 @@ func UpsertEdges[T interface{}](space *Space, es ...T) *Result {
 
 func BatchUpsertEdges[T interface{}](space *Space, batch int, es []T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	chunk := lo.Chunk(es, batch)
@@ -115,12 +115,12 @@ func BatchUpsertEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func DeleteEdges[T interface{}](space *Space, es ...T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	eids := make([]*EID, len(es))
@@ -133,12 +133,12 @@ func DeleteEdges[T interface{}](space *Space, es ...T) *Result {
 
 func BatchDeleteEdges[T interface{}](space *Space, batch int, es []T) *Result {
 	if len(es) == 0 {
-		return newErrorResult(errors.New("no edges"))
+		return NewErrorResult(errors.New("no edges"))
 	}
 
 	ok, err := IsEdge[T]()
 	if !ok {
-		return newErrorResult(err)
+		return NewErrorResult(err)
 	}
 
 	chunk := lo.Chunk(es, batch)
@@ -154,7 +154,7 @@ func BatchDeleteEdges[T interface{}](space *Space, batch int, es []T) *Result {
 		}
 	}
 
-	return newSuccessResult(cmds...)
+	return NewSuccessResult(cmds...)
 }
 
 func DeleteEdgesByFromIdAndToId[T interface{}](space *Space, fromId string, toId string) *Result {
@@ -163,7 +163,7 @@ func DeleteEdgesByFromIdAndToId[T interface{}](space *Space, fromId string, toId
 
 func DeleteEdgesByEids(space *Space, eids ...*EID) *Result {
 	if len(eids) == 0 {
-		return newErrorResult(errors.New("no edge ids"))
+		return NewErrorResult(errors.New("no edge ids"))
 	}
 
 	return space.Execute(edgeDeleteByEidsCommand(eids...))
@@ -196,22 +196,35 @@ func LoadEdge[T interface{}](space *Space, e T) *Result {
 }
 
 func GetAllEdgesEIDsByQuery[T interface{}](space *Space, query string) *ResultT[map[string]bool] {
-	r := space.Execute(AllEdgesFromVidsAndToVidsByQueryCommand(utils.GetType[T](), query))
+	t := utils.GetType[T]()
+	r := space.Execute(AllEdgesFromVidsAndToVidsByQueryCommand(t, query))
 
 	if !r.Ok {
-		return newResultT[map[string]bool](r)
+		return NewResultT[map[string]bool](r)
 	}
 
 	srcValues, err := r.DataSet.GetValuesByColName("src")
 
 	if err != nil {
-		return newResultTWithError[map[string]bool](r, err)
+		return NewResultTWithError[map[string]bool](r, err)
 	}
 
 	dstValues, err := r.DataSet.GetValuesByColName("dst")
 
 	if err != nil {
-		return newResultTWithError[map[string]bool](r, err)
+		return NewResultTWithError[map[string]bool](r, err)
+	}
+
+	var rankValues []*nebulago.ValueWrapper
+
+	hasRank := hasEdgeRank(t)
+
+	if hasRank {
+		rankValues, err = r.DataSet.GetValuesByColName("edgerank")
+
+		if err != nil {
+			return NewResultTWithError[map[string]bool](r, err)
+		}
 	}
 
 	result := make(map[string]bool)
@@ -219,18 +232,26 @@ func GetAllEdgesEIDsByQuery[T interface{}](space *Space, query string) *ResultT[
 	for i, value := range srcValues {
 		src, err := value.AsString()
 		if err != nil {
-			return newResultTWithError[map[string]bool](r, err)
+			return NewResultTWithError[map[string]bool](r, err)
 		}
 
 		dst, err := dstValues[i].AsString()
 		if err != nil {
-			return newResultTWithError[map[string]bool](r, err)
+			return NewResultTWithError[map[string]bool](r, err)
 		}
 
-		result[fmt.Sprintf("\"%s\"->\"%s\"", src, dst)] = true
+		if !hasRank {
+			result[fmt.Sprintf("\"%s\"->\"%s\"", src, dst)] = true
+		} else {
+			rank, err := rankValues[i].AsInt()
+			if err != nil {
+				return NewResultTWithError[map[string]bool](r, err)
+			}
+			result[fmt.Sprintf("\"%s\"->\"%s\"@%d", src, dst, rank)] = true
+		}
 	}
 
-	return newResultTWithData(r, result)
+	return NewResultTWithData(r, result)
 }
 
 func GetAllEdgesByEdgeType[T interface{}](space *Space) *ResultT[map[string]T] {
@@ -248,7 +269,7 @@ func GetEdgesByQuery[T interface{}](space *Space, query string) *ResultT[map[str
 
 	result := BuildEdgesFromResult[T](er.DataSet, fr.Data, tr.Data)
 
-	return newResultTWithData(r, result)
+	return NewResultTWithData(r, result)
 }
 
 func GetEdgeByEid[T interface{}](space *Space, eid *EID) *ResultT[T] {
@@ -257,12 +278,12 @@ func GetEdgeByEid[T interface{}](space *Space, eid *EID) *ResultT[T] {
 	r := checkEdgeSearchResult(er, fr, tr)
 
 	if !r.Ok {
-		return newResultT[T](r)
+		return NewResultT[T](r)
 	}
 
 	data := BuildNewEdgeFromResult[T](er.DataSet, fr.Data, tr.Data)
 
-	return newResultTWithData(r, data)
+	return NewResultTWithData(r, data)
 }
 
 func FetchEdgeData[T interface{}](space *Space, eid *EID) (*Result, *ResultT[map[string]reflect.Value], *ResultT[map[string]reflect.Value]) {
@@ -278,17 +299,17 @@ func QueryByEdgeQuery[T interface{}](space *Space, edgeQuery string) (*Result, *
 
 	fr := QueryByVertexQuery(space, ft, CommandPipelineCombine(cmd, DistinctFetchVertexByQueryCommand(ft, "$-.src")))
 	if !fr.Ok {
-		return edgeResult, newResultT[map[string]reflect.Value](fr), newErrorResultT[map[string]reflect.Value](errors.New("haven't query to vertexes"))
+		return edgeResult, NewResultT[map[string]reflect.Value](fr), NewErrorResultT[map[string]reflect.Value](errors.New("haven't query to vertexes"))
 	}
 	fromData := BuildNewVertexesReflectValuesFromResult(ft, fr.DataSet)
-	fromResult := newResultTWithData(fr, fromData)
+	fromResult := NewResultTWithData(fr, fromData)
 
 	tr := QueryByVertexQuery(space, tt, CommandPipelineCombine(cmd, DistinctFetchVertexByQueryCommand(tt, "$-.dst")))
 	if !tr.Ok {
-		return edgeResult, fromResult, newResultT[map[string]reflect.Value](tr)
+		return edgeResult, fromResult, NewResultT[map[string]reflect.Value](tr)
 	}
 	toData := BuildNewVertexesReflectValuesFromResult(tt, tr.DataSet)
-	toResult := newResultTWithData(tr, toData)
+	toResult := NewResultTWithData(tr, toData)
 
 	return edgeResult, fromResult, toResult
 }
@@ -382,11 +403,26 @@ func getEdgeNameByReflectType(t reflect.Type) string {
 	return ""
 }
 
+func hasEdgeRank(t reflect.Type) bool {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+
+		if field.Tag.Get("nebulakey") == "edgerank" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func getEdgeInsertFieldAndValueString(ev reflect.Value) (string, string) {
+	var vs string
 	propertiesValues := make([]string, 0)
 	propertiesNames := make([]string, 0)
 	from := ""
 	to := ""
+	hasRank := false
+	var rank int64
 
 	valueOfEdge := utils.IndirectValue(ev)
 	typeOfEdge := valueOfEdge.Type()
@@ -411,9 +447,20 @@ func getEdgeInsertFieldAndValueString(ev reflect.Value) (string, string) {
 		if ft.Tag.Get("nebulakey") == "edgeto" {
 			to = getVIDByVertexReflectValue(fv)
 		}
+
+		if ft.Tag.Get("nebulakey") == "edgerank" {
+			hasRank = true
+			rank = fv.Int()
+		}
 	}
 
-	return strings.Join(propertiesNames, ", "), fmt.Sprintf("\"%s\"->\"%s\":(%s)", from, to, strings.Join(propertiesValues, ", "))
+	if hasRank {
+		vs = fmt.Sprintf("\"%s\"->\"%s\"@%d:(%s)", from, to, rank, strings.Join(propertiesValues, ", "))
+	} else {
+		vs = fmt.Sprintf("\"%s\"->\"%s\":(%s)", from, to, strings.Join(propertiesValues, ", "))
+	}
+
+	return strings.Join(propertiesNames, ", "), vs
 }
 
 func getEdgeFromAndToType(t reflect.Type) (reflect.Type, reflect.Type) {
@@ -440,10 +487,13 @@ func getEdgeFromAndToType(t reflect.Type) (reflect.Type, reflect.Type) {
 }
 
 func getEdgeUpdateFieldAndValueString(ev reflect.Value) (string, string, string) {
+	var ns string
 	propertiesValues := make([]string, 0)
 	propertiesNames := make([]string, 0)
 	from := ""
 	to := ""
+	hasRank := false
+	var rank int64
 
 	valueOfEdge := utils.IndirectValue(ev)
 	typeOfEdge := valueOfEdge.Type()
@@ -468,9 +518,20 @@ func getEdgeUpdateFieldAndValueString(ev reflect.Value) (string, string, string)
 		if ft.Tag.Get("nebulakey") == "edgeto" {
 			to = getVIDByVertexReflectValue(fv)
 		}
+
+		if ft.Tag.Get("nebulakey") == "edgerank" {
+			hasRank = true
+			rank = fv.Int()
+		}
 	}
 
-	return fmt.Sprintf("\"%s\"->\"%s\"", from, to), strings.Join(propertiesNames, ", "), strings.Join(propertiesValues, ", ")
+	if hasRank {
+		ns = fmt.Sprintf("\"%s\"->\"%s\"@%d", from, to, rank)
+	} else {
+		ns = fmt.Sprintf("\"%s\"->\"%s\"", from, to)
+	}
+
+	return ns, strings.Join(propertiesNames, ", "), strings.Join(propertiesValues, ", ")
 }
 
 func LoadDataToEdgeReflectValueFromDataset(value reflect.Value, edgeResult *nebulago.ResultSet, fromResult map[string]reflect.Value, toResult map[string]reflect.Value) {
@@ -526,6 +587,12 @@ func LoadDataToEdgeReflectValueFromRowDataMap(value reflect.Value, edgeRowData m
 					LoadDataToVertexReflectValueFromRowDataMap(fvv, dd)
 					toResult[fk] = fvv
 				}
+			}
+		}
+
+		if ft.Tag.Get("nebulakey") == "edgerank" {
+			if d, ok := edgeRowData["edgerank"]; ok {
+				fv.SetInt(d.GetIVal())
 			}
 		}
 	}
