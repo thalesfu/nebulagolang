@@ -10,9 +10,15 @@ type EID struct {
 	from     string
 	to       string
 	edgeName string
+	hasRank  bool
+	rank     int
 }
 
 func (e *EID) String() string {
+	if e.hasRank {
+		return fmt.Sprintf("\"%s\"->\"%s\"@%d", e.from, e.to, e.rank)
+	}
+
 	return fmt.Sprintf("\"%s\"->\"%s\"", e.from, e.to)
 }
 
@@ -28,8 +34,27 @@ func (e *EID) Type() string {
 	return e.edgeName
 }
 
+func (e *EID) Rank() int {
+	return e.rank
+}
+
+func (e *EID) HasRank() bool {
+	return e.hasRank
+}
+
+func (e *EID) SetRank(rank int) {
+	e.hasRank = true
+	e.rank = rank
+}
+
 func NewEID(from string, to string, t string) *EID {
 	return &EID{from: from, to: to, edgeName: t}
+}
+
+func NewEIDWithRank(from string, to string, rank int, t string) *EID {
+	eid := NewEID(from, to, t)
+	eid.SetRank(rank)
+	return eid
 }
 
 func GetEIDByEdge(e interface{}) *EID {
@@ -39,6 +64,8 @@ func GetEIDByEdge(e interface{}) *EID {
 func GetEIDByEdgeReflectValue(v reflect.Value) *EID {
 	valueOfVertex := utils.IndirectValue(v)
 	typeOfVertex := valueOfVertex.Type()
+
+	hasRank := hasEdgeRank(typeOfVertex)
 
 	eid := &EID{}
 
@@ -59,8 +86,18 @@ func GetEIDByEdgeReflectValue(v reflect.Value) *EID {
 			eid.to = getVIDByVertexReflectValue(fv)
 		}
 
-		if eid.edgeName != "" && eid.from != "" && eid.to != "" {
-			return eid
+		if hasRank && ft.Tag.Get("nebulakey") == "edgerank" {
+			eid.SetRank(fv.Interface().(int))
+		}
+
+		if hasRank {
+			if eid.edgeName != "" && eid.from != "" && eid.to != "" && eid.hasRank {
+				return eid
+			}
+		} else {
+			if eid.edgeName != "" && eid.from != "" && eid.to != "" {
+				return eid
+			}
 		}
 	}
 

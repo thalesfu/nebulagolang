@@ -40,6 +40,9 @@ func edgeDeleteByEidsCommand(eids ...*EID) string {
 }
 
 func pipelineDeleteEdgeByFromVidAndToVid(t reflect.Type) string {
+	if hasEdgeRank(t) {
+		return fmt.Sprintf("DELETE edge %s $-.src -> $-.dst@$-.edgerank", getEdgeNameByReflectType(t))
+	}
 	return fmt.Sprintf("DELETE edge %s $-.src -> $-.dst", getEdgeNameByReflectType(t))
 }
 
