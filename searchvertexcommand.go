@@ -37,7 +37,7 @@ func DistinctFetchVertexByQueryCommand(t reflect.Type, query string) string {
 	return fmt.Sprintf("FETCH PROP ON %s %s YIELD DISTINCT VERTEX AS v", getTagNameByReflectType(t), query)
 }
 
-func AllVertexesByQueryCommand(t reflect.Type, query string) string {
+func AllVertexesByQueryCommand1(t reflect.Type, query string) string {
 	return CommandPipelineCombine(LookupTagQueryCommand(t, query), YieldVertexPropertyNamesCommand(t))
 }
 

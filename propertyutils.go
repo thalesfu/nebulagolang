@@ -145,6 +145,8 @@ func MappingRowDataToPropertyValue(ft reflect.StructField, fv reflect.Value, val
 		fv.SetInt(value.GetIVal())
 	case reflect.Int64:
 		fv.SetInt(value.GetIVal())
+	case reflect.Float32:
+		fallthrough
 	case reflect.Float64:
 		fv.SetFloat(value.GetFVal())
 	case reflect.Bool:

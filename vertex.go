@@ -252,19 +252,39 @@ func GetAllVertexesByVertexType[T interface{}](space *Space) *ResultT[map[string
 }
 
 func GetAllVertexesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {
-	r := space.Execute(AllVertexesByQueryCommand(utils.GetType[T](), query))
+	return QueryVertexesByQueryToMap[T](space, LookupTagQueryCommand(utils.GetType[T](), query))
+}
+
+func QueryVertexesByQueryToMap[T interface{}](space *Space, query string) *ResultT[map[string]T] {
+	resultSlice := QueryVertexesByQueryToSlice[T](space, query)
+
+	if !resultSlice.Ok {
+		return NewResultT[map[string]T](resultSlice.Result)
+	}
+
+	result := make(map[string]T)
+
+	for _, t := range resultSlice.Data {
+		result[GetVID(t)] = t
+	}
+
+	return NewResultTWithData(resultSlice.Result, result)
+}
+
+func QueryVertexesByQueryToSlice[T interface{}](space *Space, query string) *ResultT[[]T] {
+	r := space.Execute(CommandPipelineCombine(query, YieldVertexPropertyNamesCommand(utils.GetType[T]())))
 
 	if !r.Ok {
-		return NewResultT[map[string]T](r)
+		return NewResultT[[]T](r)
 	}
 
 	data := MappingResultToMap(r.DataSet)
 
-	result := make(map[string]T)
+	result := make([]T, 0)
 
 	for _, rowData := range data {
 		vertex := BuildNewVertexFromRowData[T](rowData)
-		result[GetVID(vertex)] = vertex
+		result = append(result, vertex)
 	}
 
 	return NewResultTWithData(r, result)
