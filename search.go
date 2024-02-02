@@ -21,12 +21,7 @@ func NoData(message string) *NoDataError {
 var NoDataErr = NoData("Not found data")
 
 func CountByQuery(space *Space, query string) *ResultT[int64] {
-	command := []string{
-		"USE " + space.Name + ";",
-		query + " | yield count(1) as count;",
-	}
-
-	r := space.Execute(strings.Join(command, ""))
+	r := space.Execute(CommandPipelineCombine(query, "yield count(1) as count"))
 
 	if !r.Ok {
 		return NewResultT[int64](r)
