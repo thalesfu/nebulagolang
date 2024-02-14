@@ -7,10 +7,14 @@ import (
 )
 
 type CompareResult[T interface{}] struct {
-	Added   []T
-	Deleted []T
-	Updated []T
-	Kept    []T
+	Added        []T
+	AddedCount   int
+	Deleted      []T
+	DeletedCount int
+	Updated      []T
+	UpdatedCount int
+	Kept         []T
+	KeptCount    int
 }
 
 const batchExecuteCount = 250
@@ -120,51 +124,56 @@ func CompareNebulaEntityMap[T interface{}](am map[string]T, bm map[string]T) *Co
 		result.Deleted = append(result.Deleted, a)
 	}
 
+	result.AddedCount = len(result.Added)
+	result.DeletedCount = len(result.Deleted)
+	result.UpdatedCount = len(result.Updated)
+	result.KeptCount = len(result.Kept)
+
 	return result
 }
 
-func CompareAndUpdateNebulaEntityBySliceAndQuery[T interface{}](space *Space, ns []T, query string) (*Result, *CompareResult[T]) {
+func CompareAndUpdateNebulaEntityBySliceAndQuery[T interface{}](space *Space, ns []T, query string, keepDetail bool) (*Result, *CompareResult[T]) {
 	ok, _ := IsVertex[T]()
 
 	if ok {
-		return CompareAndUpdateVertexesBySliceAndQuery[T](space, ns, query)
+		return CompareAndUpdateVertexesBySliceAndQuery[T](space, ns, query, keepDetail)
 	}
 
 	ok, _ = IsEdge[T]()
 
 	if ok {
-		return CompareAndUpdateEdgesBySliceAndQuery[T](space, ns, query)
+		return CompareAndUpdateEdgesBySliceAndQuery[T](space, ns, query, keepDetail)
 	}
 
 	return NewErrorResult(errors.New("not a vertex or edge")), nil
 }
 
-func CompareAndUpdateNebulaEntityByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string) (*Result, *CompareResult[T]) {
+func CompareAndUpdateNebulaEntityByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string, keepDetail bool) (*Result, *CompareResult[T]) {
 	ok, _ := IsVertex[T]()
 
 	if ok {
-		return CompareAndUpdateVertexesByMapAndQuery[T](space, nm, query)
+		return CompareAndUpdateVertexesByMapAndQuery[T](space, nm, query, keepDetail)
 	}
 
 	ok, _ = IsEdge[T]()
 
 	if ok {
-		return CompareAndUpdateEdgesByMapAndQuery[T](space, nm, query)
+		return CompareAndUpdateEdgesByMapAndQuery[T](space, nm, query, keepDetail)
 	}
 
 	return NewErrorResult(errors.New("not a vertex or edge")), nil
 }
 
-func CompareAndUpdateVertexesBySliceAndQuery[T interface{}](space *Space, ns []T, query string) (*Result, *CompareResult[T]) {
+func CompareAndUpdateVertexesBySliceAndQuery[T interface{}](space *Space, ns []T, query string, keepDetail bool) (*Result, *CompareResult[T]) {
 	nm := make(map[string]T)
 	for _, n := range ns {
 		nm[GetVID(n)] = n
 	}
 
-	return CompareAndUpdateVertexesByMapAndQuery[T](space, nm, query)
+	return CompareAndUpdateVertexesByMapAndQuery[T](space, nm, query, keepDetail)
 }
 
-func CompareAndUpdateVertexesByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string) (*Result, *CompareResult[T]) {
+func CompareAndUpdateVertexesByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string, keepDetail bool) (*Result, *CompareResult[T]) {
 	cmds := make([]string, 0)
 	result := GetAllVertexesByQuery[T](space, query)
 
@@ -203,19 +212,28 @@ func CompareAndUpdateVertexesByMapAndQuery[T interface{}](space *Space, nm map[s
 		cmds = append(cmds, deleteResult.Commands...)
 	}
 
+	if !keepDetail {
+		compareResult = &CompareResult[T]{
+			AddedCount:   compareResult.AddedCount,
+			DeletedCount: compareResult.DeletedCount,
+			UpdatedCount: compareResult.UpdatedCount,
+			KeptCount:    compareResult.KeptCount,
+		}
+	}
+
 	return NewSuccessResult(cmds...), compareResult
 }
 
-func CompareAndUpdateEdgesBySliceAndQuery[T interface{}](space *Space, ns []T, query string) (*Result, *CompareResult[T]) {
+func CompareAndUpdateEdgesBySliceAndQuery[T interface{}](space *Space, ns []T, query string, keepDetail bool) (*Result, *CompareResult[T]) {
 	nm := make(map[string]T)
 	for _, n := range ns {
 		nm[GetEIDByEdge(n).String()] = n
 	}
 
-	return CompareAndUpdateEdgesByMapAndQuery(space, nm, query)
+	return CompareAndUpdateEdgesByMapAndQuery(space, nm, query, keepDetail)
 }
 
-func CompareAndUpdateEdgesByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string) (*Result, *CompareResult[T]) {
+func CompareAndUpdateEdgesByMapAndQuery[T interface{}](space *Space, nm map[string]T, query string, keepDetail bool) (*Result, *CompareResult[T]) {
 	cmds := make([]string, 0)
 	result := GetAllEdgesByQuery[T](space, query)
 
@@ -252,6 +270,15 @@ func CompareAndUpdateEdgesByMapAndQuery[T interface{}](space *Space, nm map[stri
 		}
 
 		cmds = append(cmds, deleteResult.Commands...)
+	}
+
+	if !keepDetail {
+		compareResult = &CompareResult[T]{
+			AddedCount:   compareResult.AddedCount,
+			DeletedCount: compareResult.DeletedCount,
+			UpdatedCount: compareResult.UpdatedCount,
+			KeptCount:    compareResult.KeptCount,
+		}
 	}
 
 	return NewSuccessResult(cmds...), compareResult
