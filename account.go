@@ -18,11 +18,11 @@ func LoadAccount() (*Account, bool) {
 
 	content, ok := utils.LoadContent(filePath)
 	if ok {
-		utils.UnmarshalYaml[Account](content)
+		return utils.UnmarshalYaml[Account](content)
 	}
 
 	return &Account{
-		Host:     "172.18.143.252",
+		Host:     "127.0.0.1",
 		Port:     9669,
 		Username: "root",
 	}, true
