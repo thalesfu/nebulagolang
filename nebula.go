@@ -12,6 +12,11 @@ import (
 type NebulaDB struct {
 	account *Account
 	spaces  map[string]*Space
+	pool    *nebulago.ConnectionPool
+}
+
+func (db *NebulaDB) Close() {
+	db.pool.Close()
 }
 
 func LoadDB() (*NebulaDB, bool) {
@@ -21,29 +26,30 @@ func LoadDB() (*NebulaDB, bool) {
 		return nil, false
 	}
 
+	var logger = nebulago.DefaultLogger{}
+	hostAddress := nebulago.HostAddress{Host: account.Host, Port: account.Port}
+	hostList := []nebulago.HostAddress{hostAddress}
+	// Create configs for connection pool using default values
+	testPoolConfig := nebulago.GetDefaultConf()
+	testPoolConfig.MinConnPoolSize = 50
+
+	// Initialize connection pool
+	pool, err := nebulago.NewConnectionPool(hostList, testPoolConfig, logger)
+
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Fail to initialize the connection pool, host: %s, port: %d, %s", account.Host, account.Port, err.Error()))
+	}
+
 	return &NebulaDB{
 		account: account,
 		spaces:  make(map[string]*Space),
+		pool:    pool,
 	}, true
 }
 
 func (db *NebulaDB) Execute(stmts ...string) (*nebulago.ResultSet, bool, error) {
-	var logger = nebulago.DefaultLogger{}
-	hostAddress := nebulago.HostAddress{Host: db.account.Host, Port: db.account.Port}
-	hostList := []nebulago.HostAddress{hostAddress}
-	// Create configs for connection pool using default values
-	testPoolConfig := nebulago.GetDefaultConf()
-
-	// Initialize connection pool
-	pool, err := nebulago.NewConnectionPool(hostList, testPoolConfig, logger)
-	if err != nil {
-		log.Fatal(fmt.Sprintf("Fail to initialize the connection pool, host: %s, port: %d, %s", db.account.Host, db.account.Port, err.Error()))
-	}
-	// Close all connections in the pool
-	defer pool.Close()
-
 	// Create session
-	session, err := pool.GetSession(db.account.Username, db.account.Password)
+	session, err := db.pool.GetSession(db.account.Username, db.account.Password)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Fail to create a new session from connection pool, username: %s, password: %s, %s",
 			db.account.Username, db.account.Password, err.Error()))
