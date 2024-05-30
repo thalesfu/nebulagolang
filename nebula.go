@@ -31,7 +31,7 @@ func LoadDB() (*NebulaDB, bool) {
 	hostList := []nebulago.HostAddress{hostAddress}
 	// Create configs for connection pool using default values
 	testPoolConfig := nebulago.GetDefaultConf()
-	testPoolConfig.MinConnPoolSize = 50
+	testPoolConfig.MaxConnPoolSize = 300
 
 	// Initialize connection pool
 	pool, err := nebulago.NewConnectionPool(hostList, testPoolConfig, logger)
