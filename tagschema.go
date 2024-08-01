@@ -116,6 +116,8 @@ func generateTagSchema(t reflect.Type) (*TagSchema, bool) {
 			tagSchema.AddIndex(index...)
 		}
 
+		tagSchema.AddIndex()
+
 		return tagSchema, true
 	}
 
