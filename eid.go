@@ -2,7 +2,7 @@ package nebulagolang
 
 import (
 	"fmt"
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	"reflect"
 )
 
@@ -62,7 +62,7 @@ func GetEIDByEdge(e interface{}) *EID {
 }
 
 func GetEIDByEdgeReflectValue(v reflect.Value) *EID {
-	valueOfVertex := utils.IndirectValue(v)
+	valueOfVertex := golangutils.IndirectValue(v)
 	typeOfVertex := valueOfVertex.Type()
 
 	hasRank := hasEdgeRank(typeOfVertex)

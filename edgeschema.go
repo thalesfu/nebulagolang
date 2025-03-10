@@ -2,8 +2,8 @@ package nebulagolang
 
 import (
 	"fmt"
+	"github.com/thalesfu/golangutils"
 	"github.com/thalesfu/nebulagolang/basictype"
-	"github.com/thalesfu/nebulagolang/utils"
 	"reflect"
 	"strings"
 	"time"
@@ -75,7 +75,7 @@ func (es *EdgeSchema) CreateString() string {
 }
 
 func BuildEdgeSchema[T interface{}]() (*EdgeSchema, bool) {
-	typeOfEdge := utils.GetType[T]()
+	typeOfEdge := golangutils.GetType[T]()
 	edgeSchema, ok := generateEdgeSchema(typeOfEdge)
 
 	if !ok {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	nebulago "github.com/vesoft-inc/nebula-go/v3"
 	nebulaggonebula "github.com/vesoft-inc/nebula-go/v3/nebula"
 	"reflect"
@@ -181,7 +181,7 @@ func DeleteAllVertexesByTag[T interface{}](space *Space) *Result {
 }
 
 func DeleteAllVertexesByQuery[T interface{}](space *Space, query string) *Result {
-	return DeleteVertexByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), query))
+	return DeleteVertexByQuery(space, AllVertexesVidsByQueryCommand(golangutils.GetType[T](), query))
 }
 func DeleteVertexByQuery(space *Space, query string) *Result {
 	return space.Execute(vertexesDeleteByQueryCommand(query))
@@ -192,15 +192,15 @@ func DeleteVertexWithEdgeByQuery(space *Space, vertexQuery string) *Result {
 }
 
 func DeleteAllVertexesWithEdgesByTag[T interface{}](space *Space) *Result {
-	return DeleteVertexWithEdgeByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), ""))
+	return DeleteVertexWithEdgeByQuery(space, AllVertexesVidsByQueryCommand(golangutils.GetType[T](), ""))
 }
 
 func DeleteAllVertexesWithEdgesByQuery[T interface{}](space *Space, query string) *Result {
-	return DeleteVertexWithEdgeByQuery(space, AllVertexesVidsByQueryCommand(utils.GetType[T](), query))
+	return DeleteVertexWithEdgeByQuery(space, AllVertexesVidsByQueryCommand(golangutils.GetType[T](), query))
 }
 
 func LoadVertex[T interface{}](space *Space, t T) *Result {
-	r := FetchVertexData(space, utils.GetType[T](), GetVID(t))
+	r := FetchVertexData(space, golangutils.GetType[T](), GetVID(t))
 
 	if !r.Ok {
 		return r
@@ -230,7 +230,7 @@ func QueryByVertexQuery(space *Space, t reflect.Type, tagQuery string) *Result {
 }
 
 func GetVertexByVid[T interface{}](space *Space, vid string) *ResultT[T] {
-	r := FetchVertexData(space, utils.GetType[T](), vid)
+	r := FetchVertexData(space, golangutils.GetType[T](), vid)
 
 	if !r.Ok {
 		return NewResultT[T](r)
@@ -252,7 +252,7 @@ func GetAllVertexesByVertexType[T interface{}](space *Space) *ResultT[map[string
 }
 
 func GetAllVertexesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {
-	return QueryVertexesByQueryToMap[T](space, LookupTagQueryCommand(utils.GetType[T](), query))
+	return QueryVertexesByQueryToMap[T](space, LookupTagQueryCommand(golangutils.GetType[T](), query))
 }
 
 func QueryVertexesByQueryToMap[T interface{}](space *Space, query string) *ResultT[map[string]T] {
@@ -272,7 +272,7 @@ func QueryVertexesByQueryToMap[T interface{}](space *Space, query string) *Resul
 }
 
 func QueryVertexesByQueryToSlice[T interface{}](space *Space, query string) *ResultT[[]T] {
-	r := space.Execute(CommandPipelineCombine(query, YieldVertexPropertyNamesCommand(utils.GetType[T]())))
+	r := space.Execute(CommandPipelineCombine(query, YieldVertexPropertyNamesCommand(golangutils.GetType[T]())))
 
 	if !r.Ok {
 		return NewResultT[[]T](r)
@@ -291,7 +291,7 @@ func QueryVertexesByQueryToSlice[T interface{}](space *Space, query string) *Res
 }
 
 func GetAllVertexesVIDsByQuery[T interface{}](space *Space, query string) *ResultT[map[string]bool] {
-	r := space.Execute(AllVertexesVidsByQueryCommand(utils.GetType[T](), query))
+	r := space.Execute(AllVertexesVidsByQueryCommand(golangutils.GetType[T](), query))
 
 	if !r.Ok {
 		return NewResultT[map[string]bool](r)
@@ -322,7 +322,7 @@ func GetAllVertexesPropertyByQuery[T interface{}](space *Space, query string, pr
 		displayPropertyName = propertyName
 	}
 
-	r := space.Execute(AllVertexesPropertyByQueryCommand(utils.GetType[T](), query, propertyName, displayPropertyName))
+	r := space.Execute(AllVertexesPropertyByQueryCommand(golangutils.GetType[T](), query, propertyName, displayPropertyName))
 
 	if !r.Ok {
 		return NewResultT[map[string]bool](r)
@@ -401,7 +401,7 @@ func IsVertex[T interface{}]() (bool, error) {
 	hasTagName := false
 	hasVidField := false
 
-	typeOfVertex := utils.GetType[T]()
+	typeOfVertex := golangutils.GetType[T]()
 
 	for i := 0; i < typeOfVertex.NumField(); i++ {
 		field := typeOfVertex.Field(i)
@@ -441,7 +441,7 @@ func GetVID(v interface{}) string {
 }
 
 func getVIDByVertexReflectValue(v reflect.Value) string {
-	valueOfVertex := utils.IndirectValue(v)
+	valueOfVertex := golangutils.IndirectValue(v)
 	typeOfVertex := valueOfVertex.Type()
 
 	for i := 0; i < typeOfVertex.NumField(); i++ {
@@ -461,7 +461,7 @@ func getVertexInsertFieldAndValueString(v reflect.Value) (string, string) {
 	propertiesNames := make([]string, 0)
 	vid := ""
 
-	valueOfVertex := utils.IndirectValue(v)
+	valueOfVertex := golangutils.IndirectValue(v)
 	typeOfVertex := valueOfVertex.Type()
 
 	for i := 0; i < typeOfVertex.NumField(); i++ {
@@ -490,7 +490,7 @@ func getVertexUpdateFieldAndValueString(vv reflect.Value) (string, string, strin
 	propertiesNames := make([]string, 0)
 	vid := ""
 
-	valueOfVertex := utils.IndirectValue(vv)
+	valueOfVertex := golangutils.IndirectValue(vv)
 	typeOfVertex := valueOfVertex.Type()
 
 	for i := 0; i < typeOfVertex.NumField(); i++ {
@@ -523,7 +523,7 @@ func LoadDataToVertexReflectValueFromDataset(value reflect.Value, result *nebula
 }
 
 func LoadDataToVertexReflectValueFromRowDataMap(value reflect.Value, rowData map[string]*nebulaggonebula.Value) {
-	v := utils.IndirectValue(value)
+	v := golangutils.IndirectValue(value)
 	t := v.Type()
 
 	for i := 0; i < t.NumField(); i++ {

@@ -1,7 +1,7 @@
 package nebulagolang
 
 import (
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 )
 
 type Account struct {
@@ -16,9 +16,9 @@ func LoadAccount() (*Account, bool) {
 	// 构建完整的文件路径
 	filePath := "nebula-account.yaml"
 
-	content, ok := utils.LoadContent(filePath)
+	content, ok := golangutils.LoadContent(filePath)
 	if ok {
-		return utils.UnmarshalYaml[Account](content)
+		return golangutils.UnmarshalYaml[Account](content)
 	}
 
 	return &Account{

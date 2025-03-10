@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	"strings"
 )
 
@@ -23,8 +23,8 @@ func (s *Space) Execute(stmts ...string) *Result {
 }
 
 func (s *Space) Drop() *Result {
-	fmt.Println(utils.PrintColorRed + "大警告! 你将删除" + s.Name + "这个空间. WARNING! You are going to drop the space " + s.Name + "!" + utils.PrintColorReset)
-	fmt.Println(utils.PrintColorRed + "如果你真的要删除，请输入\"我真的要删除" + s.Name + "这个空间\"" + utils.PrintColorReset)
+	fmt.Println(golangutils.PrintColorRed + "大警告! 你将删除" + s.Name + "这个空间. WARNING! You are going to drop the space " + s.Name + "!" + golangutils.PrintColorReset)
+	fmt.Println(golangutils.PrintColorRed + "如果你真的要删除，请输入\"我真的要删除" + s.Name + "这个空间\"" + golangutils.PrintColorReset)
 	var input string
 	fmt.Scanln(&input)
 	if input == "我真的要删除"+s.Name+"这个空间" {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	nebulago "github.com/vesoft-inc/nebula-go/v3"
 	nebulaggonebula "github.com/vesoft-inc/nebula-go/v3/nebula"
 	"reflect"
@@ -174,11 +174,11 @@ func DeleteAllEdgesByEdgeType[T interface{}](space *Space) *Result {
 }
 
 func DeleteAllEdgesByQuery[T interface{}](space *Space, query string) *Result {
-	return DeleteEdgesByQuery[T](space, AllEdgesFromVidsAndToVidsByQueryCommand(utils.GetType[T](), query))
+	return DeleteEdgesByQuery[T](space, AllEdgesFromVidsAndToVidsByQueryCommand(golangutils.GetType[T](), query))
 }
 
 func DeleteEdgesByQuery[T interface{}](space *Space, query string) *Result {
-	return space.Execute(edgesDeleteByQueryCommand(utils.GetType[T](), query))
+	return space.Execute(edgesDeleteByQueryCommand(golangutils.GetType[T](), query))
 }
 
 func LoadEdge[T interface{}](space *Space, e T) *Result {
@@ -196,7 +196,7 @@ func LoadEdge[T interface{}](space *Space, e T) *Result {
 }
 
 func GetAllEdgesEIDsByQuery[T interface{}](space *Space, query string) *ResultT[map[string]bool] {
-	t := utils.GetType[T]()
+	t := golangutils.GetType[T]()
 	r := space.Execute(AllEdgesFromVidsAndToVidsByQueryCommand(t, query))
 
 	if !r.Ok {
@@ -259,7 +259,7 @@ func GetAllEdgesByEdgeType[T interface{}](space *Space) *ResultT[map[string]T] {
 }
 
 func GetAllEdgesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {
-	return GetEdgesByQuery[T](space, LookupEdgeQueryCommand(utils.GetType[T](), query))
+	return GetEdgesByQuery[T](space, LookupEdgeQueryCommand(golangutils.GetType[T](), query))
 }
 
 func GetEdgesByQuery[T interface{}](space *Space, query string) *ResultT[map[string]T] {
@@ -291,7 +291,7 @@ func FetchEdgeData[T interface{}](space *Space, eid *EID) (*Result, *ResultT[map
 }
 
 func QueryByEdgeQuery[T interface{}](space *Space, edgeQuery string) (*Result, *ResultT[map[string]reflect.Value], *ResultT[map[string]reflect.Value]) {
-	t := utils.GetType[T]()
+	t := golangutils.GetType[T]()
 	cmd := QueryByEdgeQueryCommand(t, edgeQuery)
 	edgeResult := space.Execute(cmd)
 
@@ -340,7 +340,7 @@ func IsEdge[T interface{}]() (bool, error) {
 	hasFromField := false
 	hasToField := false
 
-	typeOfTag := utils.GetType[T]()
+	typeOfTag := golangutils.GetType[T]()
 
 	for i := 0; i < typeOfTag.NumField(); i++ {
 		field := typeOfTag.Field(i)
@@ -387,7 +387,7 @@ func IsEdge[T interface{}]() (bool, error) {
 }
 
 func GetEdgeName[T interface{}]() string {
-	return getEdgeNameByReflectType(utils.GetType[T]())
+	return getEdgeNameByReflectType(golangutils.GetType[T]())
 }
 
 func getEdgeNameByReflectType(t reflect.Type) string {
@@ -424,7 +424,7 @@ func getEdgeInsertFieldAndValueString(ev reflect.Value) (string, string) {
 	hasRank := false
 	var rank int64
 
-	valueOfEdge := utils.IndirectValue(ev)
+	valueOfEdge := golangutils.IndirectValue(ev)
 	typeOfEdge := valueOfEdge.Type()
 
 	for i := 0; i < typeOfEdge.NumField(); i++ {
@@ -471,11 +471,11 @@ func getEdgeFromAndToType(t reflect.Type) (reflect.Type, reflect.Type) {
 		ft := t.Field(i)
 
 		if ft.Tag.Get("nebulakey") == "edgefrom" {
-			from = utils.IndirectValue(reflect.New(ft.Type)).Type()
+			from = golangutils.IndirectValue(reflect.New(ft.Type)).Type()
 		}
 
 		if ft.Tag.Get("nebulakey") == "edgeto" {
-			to = utils.IndirectValue(reflect.New(ft.Type)).Type()
+			to = golangutils.IndirectValue(reflect.New(ft.Type)).Type()
 		}
 
 		if from != nil && to != nil {
@@ -495,7 +495,7 @@ func getEdgeUpdateFieldAndValueString(ev reflect.Value) (string, string, string)
 	hasRank := false
 	var rank int64
 
-	valueOfEdge := utils.IndirectValue(ev)
+	valueOfEdge := golangutils.IndirectValue(ev)
 	typeOfEdge := valueOfEdge.Type()
 
 	for i := 0; i < typeOfEdge.NumField(); i++ {
@@ -543,7 +543,7 @@ func LoadDataToEdgeReflectValueFromDataset(value reflect.Value, edgeResult *nebu
 }
 
 func LoadDataToEdgeReflectValueFromRowDataMap(value reflect.Value, edgeRowData map[string]*nebulaggonebula.Value, fromResult map[string]reflect.Value, toResult map[string]reflect.Value) {
-	v := utils.IndirectValue(value)
+	v := golangutils.IndirectValue(value)
 	t := v.Type()
 
 	for i := 0; i < t.NumField(); i++ {
@@ -559,7 +559,7 @@ func LoadDataToEdgeReflectValueFromRowDataMap(value reflect.Value, edgeRowData m
 		if ft.Tag.Get("nebulakey") == "edgefrom" {
 			if d, ok := edgeRowData["src"]; ok {
 				fk := string(d.GetSVal())
-				fvv := utils.IndirectValue(fv)
+				fvv := golangutils.IndirectValue(fv)
 				if fkv, ok := fromResult[fk]; ok {
 					fvv.Set(fkv)
 				} else {
@@ -576,7 +576,7 @@ func LoadDataToEdgeReflectValueFromRowDataMap(value reflect.Value, edgeRowData m
 		if ft.Tag.Get("nebulakey") == "edgeto" {
 			if d, ok := edgeRowData["dst"]; ok {
 				fk := string(d.GetSVal())
-				fvv := utils.IndirectValue(fv)
+				fvv := golangutils.IndirectValue(fv)
 				if fkv, ok := toResult[fk]; ok {
 					fvv.Set(fkv)
 				} else {

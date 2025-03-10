@@ -3,7 +3,7 @@ package nebulagolang
 import (
 	"bytes"
 	"fmt"
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	nebulago "github.com/vesoft-inc/nebula-go/v3"
 	nebulaggonebula "github.com/vesoft-inc/nebula-go/v3/nebula"
 	"reflect"
@@ -189,11 +189,11 @@ func MappingResultToMap(resultSet *nebulago.ResultSet) map[int]map[string]*nebul
 }
 
 func GetPropertyQueryByPropertyNameAndValue[T interface{}](propertyName string, propertyValue any) string {
-	return GetPropertiesByRelfectTypeAndQuery(utils.GetType[T](), map[string]any{propertyName: propertyValue})
+	return GetPropertiesByRelfectTypeAndQuery(golangutils.GetType[T](), map[string]any{propertyName: propertyValue})
 }
 
 func GetPropertiesQuery[T interface{}](propertiesNamesAndValues map[string]any) string {
-	return GetPropertiesByRelfectTypeAndQuery(utils.GetType[T](), propertiesNamesAndValues)
+	return GetPropertiesByRelfectTypeAndQuery(golangutils.GetType[T](), propertiesNamesAndValues)
 }
 
 func GetPropertiesByRelfectTypeAndQuery(t reflect.Type, propertiesNamesAndValues map[string]any) string {
@@ -218,7 +218,7 @@ func GetPropertiesByRelfectTypeAndQuery(t reflect.Type, propertiesNamesAndValues
 }
 
 func getValueString(v any) string {
-	fv := utils.IndirectValue(reflect.ValueOf(v))
+	fv := golangutils.IndirectValue(reflect.ValueOf(v))
 
 	switch fv.Type().Kind() {
 	case reflect.String:

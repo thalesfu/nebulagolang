@@ -2,8 +2,8 @@ package nebulagolang
 
 import (
 	"fmt"
+	"github.com/thalesfu/golangutils"
 	"github.com/thalesfu/nebulagolang/basictype"
-	"github.com/thalesfu/nebulagolang/utils"
 	"reflect"
 	"strings"
 	"time"
@@ -75,7 +75,7 @@ func (s *TagSchema) CreateString() string {
 }
 
 func BuildTagSchema[T interface{}]() (*TagSchema, bool) {
-	typeOfTag := utils.GetType[T]()
+	typeOfTag := golangutils.GetType[T]()
 	tagSchema, ok := generateTagSchema(typeOfTag)
 
 	if !ok {

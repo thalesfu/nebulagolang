@@ -2,7 +2,7 @@ package nebulagolang
 
 import (
 	"errors"
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	"reflect"
 )
 
@@ -53,9 +53,9 @@ func IsSameNebulaEntityID[T interface{}](a T, b T) bool {
 }
 
 func IsSameNebulaProperty[T interface{}](a T, b T) bool {
-	va := utils.IndirectValue(reflect.ValueOf(a))
+	va := golangutils.IndirectValue(reflect.ValueOf(a))
 	ta := va.Type()
-	vb := utils.IndirectValue(reflect.ValueOf(b))
+	vb := golangutils.IndirectValue(reflect.ValueOf(b))
 
 	for i := 0; i < ta.NumField(); i++ {
 		fta := ta.Field(i)

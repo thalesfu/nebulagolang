@@ -1,12 +1,12 @@
 package nebulagolang
 
 import (
-	"github.com/thalesfu/nebulagolang/utils"
+	"github.com/thalesfu/golangutils"
 	"reflect"
 )
 
 func GetTagName[T interface{}]() string {
-	return getTagNameByReflectType(utils.GetType[T]())
+	return getTagNameByReflectType(golangutils.GetType[T]())
 }
 
 func getTagNameByReflectType(t reflect.Type) string {
