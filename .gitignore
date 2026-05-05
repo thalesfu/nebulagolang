@@ -24,3 +24,5 @@ go.sum
 /.idea/
 
 nebula-account.yaml
+# macOS
+.DS_Store
